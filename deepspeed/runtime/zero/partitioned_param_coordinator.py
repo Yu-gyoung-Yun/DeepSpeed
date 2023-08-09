@@ -18,8 +18,6 @@ from deepspeed.utils.debug import debug_module2name_id, debug_param2name_id
 from deepspeed.accelerator import get_accelerator
 import logging
 
-ENABLE_PROFILER = False
-
 
 def debug_rank0(message: str) -> None:
     if dist.get_rank() == 0:
@@ -119,7 +117,7 @@ class PartitionedParameterCoordinator:
         self.__ongoing_fetch_events: Deque[get_accelerator().Event] = collections.deque()
         # TODO. make this configurable via JSON
         self.__max_ongoing_fetch_events: int = 2
-        self.__profiler = PartitionedParameterProfiler(timers if ENABLE_PROFILER else None)
+        self.__profiler = PartitionedParameterProfiler(timers)
 
     """Tracing and Tracking
     TODO. consider performing trace before initializing PartitionedParameterCoordinator
@@ -202,6 +200,9 @@ class PartitionedParameterCoordinator:
         if not self.is_complete_trace():  # not self.trace_complete:
             # Make sure that recorded submodule orders are identical across ranks
             assert_ints_same_as_other_ranks([m.id for m in self.__submodule_order])
+            #print(f"self.__submodule_order: {self.__submodule_order}")
+            #print(f"self.__param_order: {[p.param.ds_id for p in self.__param_order]}") # []
+            #print(f"self.__param: {[p.step_id_last_used_at for p in self.__param_order]}")
 
             if self.is_record_trace():
                 # Successfully recorded a trace
@@ -247,12 +248,22 @@ class PartitionedParameterCoordinator:
     Fetching, prefetching, and releasing parameters
     """
 
-    @instrument_w_nvtx
-    @torch.no_grad()
+    #@instrument_w_nvtx
+    #@torch.no_grad()
     def fetch_sub_module(self, current_submodule: Module, forward: bool) -> None:
+        #import sys
+        # pre_sub_module_forward_function
+        #print(f"fetch_sub_module {sys._getframe().f_back.f_code.co_name}") # from pre_sub_module_forward_function()
+        #print(f"fetch_sub_module: {current_submodule} and forward: {forward}") # 왜 전체 model?
         """This method does the following (in order):
         1. kick off fetch for parameters in immediately required sub module
-        2. kick off fetch for next few parameters we will need later (prefetch)
+        2. kick off fetch for next few parameters we will need later (prefetch) 
+        # --> prefetch를 다하는게 아니라 부분 partition_params[0]하나만? 
+        --> Q. 얼만큼 올리지의 기준이 gpu mem/current computation time이 아니라, 미리 정해둔 만큼만 pre-fetch..? 
+        --> Q. sync걸고 block해서 와야할 param기다리는 시간이 걸리는게 있나? (X. 지금 자기param은 pre로 시작전에 무조건 들고오도록 하니까. 
+        # Q. --> 근데 computation 시작 전에 아직 param다 all-gather 못했으면?? --> sync 거나? (pre-forward로 async하게 들고오니까, computation은 무조건 그 뒤에 신경씀. --> prefetch로 미리 들고온게 있으면 NOT_AVAILBABE이 수정되어있지 않을까) 그 다음 pre-fetch를 그냥 다음 elem중의 첫번째 elem으로 무조건 하나만 들고오나?
+        # Q. --> computation_time을 cost로 신경써서, overlapping 할 수 있는만큼만 들고오게 못할까? (partition마찬가지로)) --> 얼만큼 미리 들고
+        # Q. partition 크기를 미리 gpu memory고려해서 잘라두는건가? ==> partition_size를 어떻게 골라? (그냥 /GPUs?)
         3. block on parameters in immediately required sub module
         """
         if logger.isEnabledFor(logging.DEBUG):
@@ -265,8 +276,13 @@ class PartitionedParameterCoordinator:
                 }))
 
         params_to_fetch = frozenset(iter_params(current_submodule))
+        #print(f"params_to_fetch: {params_to_fetch}")
         fetch_numel = sum(
-            [p.partition_numel() for p in params_to_fetch if p.ds_status == ZeroParamStatus.NOT_AVAILABLE])
+            [p.partition_numel() for p in params_to_fetch if p.ds_status == ZeroParamStatus.NOT_AVAILABLE]) # CPU에 있는게 맞는지(정확히 의미는 다르지만 이런의미). free_param or partitioned_param
+        NVMe_params_numel = [p.partition_numel() for p in params_to_fetch if p.ds_status == ZeroParamStatus.INFLIGHT] # INFLIGHT or AVAILABLE (이미 GPU마다 partition param을 가지고 있음)
+        if NVMe_params_numel:
+            print(f"NVMe_params_numel: {NVMe_params_numel}")
+        #print(f"fetch_numel: {fetch_numel}") # number of free_param/partitioned_param
         if fetch_numel > 0:
             event_name = __class__.FORWARD_FETCH_SUBMIT if forward else __class__.BACKWARD_FETCH_SUBMIT
             self._dump_param_ids(event_name, current_submodule.id,
@@ -277,40 +293,44 @@ class PartitionedParameterCoordinator:
             if logger.isEnabledFor(logging.DEBUG):
                 for param in params_to_fetch:
                     debug_rank0(f"-fetch: {param.ds_summary()}")
-            self.__all_gather_params(params_to_fetch, forward)
+            self.__all_gather_params(params_to_fetch, forward) # 모든 param # 아직 CPu->GPU로 layer i를 실행하기 전, layer i의 param이 all-gather되지 않았을 경우, all-gather 자기 모듈꺼 먼저 실행.
             self.__profiler.stop_event(event_name, fetch_numel)
 
         wait_numel = 0
         wait_event_name = __class__.FORWARD_FETCH_WAIT if forward else __class__.BACKWARD_FETCH_WAIT
         self.__profiler.start_event(wait_event_name)
         # wait for parameters in the immediately needed submodule to become available
-        for param in params_to_fetch:
+        for param in params_to_fetch: # 지금 모듈의 모든 partition_param 중에서 아직 async로 inflight하게 GPU로 all gather 보내지고 있는 애가 있으면 이거마무리 하도록 강요.
+            #print(f"param.ds_status: {param.ds_status}") # 전부다 async로 보내는 중이기 때문에 #다 INFLIGHT임.
             param.ds_active_sub_modules.add(current_submodule.id)
             if logger.isEnabledFor(logging.DEBUG):
                 debug_rank0(f"-wait: {param.ds_summary()}")
-            if param in self.__inflight_param_registry:
+            if param in self.__inflight_param_registry: # 아까 __all_gather_params에서 async로 CPU->GPU를 보내고 있었음을 표시했음. 현재 sub_module의 모든 param들.
                 wait_numel += param.partition_numel()
-                with get_accelerator().stream(self.__allgather_stream):
+                #print(f"self.__allgather_stream: {self.__allgather_stream}") # <torch.cuda.Stream device=cuda:3 cuda_stream=0x53c9cbd0>
+                with get_accelerator().stream(self.__allgather_stream): # Torch.cuda.Stream # Async # --> 이게 computation stream과 async 겹치는게 맞나? ㅇㅇ--> async하게 보내는걸 다 처리해서 qeueu에 넣은 후에, 
                     while self.__ongoing_fetch_events and self.__ongoing_fetch_events[0].query():
+                        #print(f"self.__ongoing_fetch_events: {self.__ongoing_fetch_events}")
                         self.__ongoing_fetch_events.popleft()
                     if len(self.__ongoing_fetch_events) > self.__max_ongoing_fetch_events:
                         self.__ongoing_fetch_events.popleft().synchronize()
-
-                    self.__inflight_param_registry.pop(param).wait()
-
-                    if not get_accelerator().is_synchronized_device():
-                        event = get_accelerator().Event()
-                        event.record()
-                        self.__ongoing_fetch_events.append(event)
+                    # Wait ensures the operation is enqueued, but not necessarily complete.
+                    # 앞전의 _all_gather로 모든 parame이 다 all-gather되었을 때 torch.dsitributed.all_gather_tensor_into(async_op=True)
+                    # device마다 partitioned된 param들이 async하게 잘 들어갔는지 wait
+                    self.__inflight_param_registry.pop(param).wait() # 아까 _all_gather안에서의 torch.distributed.all_gather_tensor_into의 output: AllGatherCoalescedHandle . handle.wait
+                    # Async work handle, if async_op is set to True. None, if not async_op or if not part of the group
+                    event = get_accelerator().Event()
+                    event.record() # Uses torch.cuda.current_stream() --> default stream if no stream is specified. 
+                    self.__ongoing_fetch_events.append(event)
 
             assert param.ds_status == ZeroParamStatus.AVAILABLE, param.ds_summary()
-        if not get_accelerator().is_synchronized_device():
-            get_accelerator().current_stream().wait_stream(self.__allgather_stream)
+        get_accelerator().current_stream().wait_stream(self.__allgather_stream) # default stream.wait_stream() --> Async로 다 가져올때까지 기다리네.. --> 비효율적일 것 같은데? --> 미리 scheudling을 하는게 나을 듯?
         self.__profiler.stop_event(wait_event_name, wait_numel)
 
         # kick off parameter prefetches for upcoming modules
         # don't prefetch if we dont have a completed model trace
-        if self.is_complete_trace():
+        if self.is_complete_trace(): # self.__trace_mode
+            #print("if self.is_complete_trace(): ") # not here if train.iter==1
             # go through the parameters we need for the current module and pop them
             # off the fetch queue so that they aren't prefetched later.
             # if params have already been popped off the fetch queue by earlier
@@ -340,21 +360,25 @@ class PartitionedParameterCoordinator:
                     and param.ds_tensor.status == PartitionedParamStatus.NOT_AVAILABLE
 
             # kick off all gather for params in the next few submodules (prefetch)
-            if self.__prefetch_bucket_sz > 0:
+            if self.__prefetch_bucket_sz > 0: # DeepSpeedZeRoOfflaod(prefetch_bucket_sz=50000000)
                 max_params_to_prefetch = min(self.__max_n_available_params - self.__n_available_params,
                                              self.__prefetch_bucket_sz)
                 params_to_prefetch = set()
                 numel_prefetching = 0
+                #print(f"self.__param_queue: {self.__param_queue}") # [PartitionedParameterCoordinator.__ParamInTrace(param=Parameter containing:), PartitionedParameterCoordinator.__ParamInTrace(param=Parameter containing:)]
                 while self.__param_queue and numel_prefetching < max_params_to_prefetch:
                     param_in_trace: __class__.__ParamInTrace = self.__param_queue.popleft()
 
                     if _is_currently_on_nvme(param_in_trace.param):
                         # nvme prefetch is handled elsewhere. Need to break here to preserve fetch order
-                        self.__param_queue.appendleft(param_in_trace)
-                        break
-
-                    do_prefetch = param_in_trace.param.ds_status == ZeroParamStatus.NOT_AVAILABLE
-                    if param_in_trace.param in params_to_prefetch:
+                        self.__param_queue.appendleft(param_in_trace) # 아직 CPU가 아닌 NVMe에 있으면 얘는 지금 당장에 pre_fetch할 수 X
+                        break # 아예 while 종료, 해당 param은 물론 뒤의 순서 들의 param도 아직까지 NVMe에 있으므로, CPU->GPU로 미리 pre-fetch할 수 있는게 없음.
+                        # pre-fetch를 P2P로 진행 못하나?
+                        # NVMe->CPU를 보낼 때 무조건 i-2번째에 다 보내는건 아닌 듯. prefetch queue를 확인하면서 함. --> 
+                        # 언제 보낼지는 대충 여기 알고리즘에 정해져있지만(i-2, i-1, ...)
+                        # [NOTE 이거 확인하기!!] 어디까지 보낼지는 --> max_numel_prefetching으로 단순히 상수값으로 정함. --> cmoputatino latency를 상관안쓰는 듯?? --> 내(i+1)꺼 실행하기 전에도 i+1 layer의 param미리 prefetching한게(시점 layer i일 때) 계속 inflight일 수 있음 --> 이 경우, wait를 사용해서 기다리므로, 비효율적!!!!
+                    do_prefetch = param_in_trace.param.ds_status == ZeroParamStatus.NOT_AVAILABLE # free/partition된 상태로 아직 CPU에 있으면서! GPU에 올라오지 않음.
+                    if param_in_trace.param in params_to_prefetch: # 이미 한번 prefetch를 진행한 경우.
                         # Avoid duplicates
                         do_prefetch = False
 
@@ -372,10 +396,10 @@ class PartitionedParameterCoordinator:
                     if logger.isEnabledFor(logging.DEBUG):
                         for param in params_to_prefetch:
                             debug_rank0(f"-prefetch: {param.ds_summary()}")
-                    self.__all_gather_params(params_to_prefetch, forward)
+                    self.__all_gather_params(params_to_prefetch, forward) # CPU->GPU
                     self.__profiler.stop_event(event_name, numel_prefetching)
 
-                if self.__prefetch_nvme:
+                if self.__prefetch_nvme: # True/false
                     self.__prefetch_nvme_param_partitions()
 
         self.__step_id += 1
@@ -416,16 +440,23 @@ class PartitionedParameterCoordinator:
         partitioned_params = []
         all_gather_numel = 0
         for param in params:
-            if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
+            #print(f"param: {param}") # Parameter containing:
+            # tensor([], device='cuda:0', dtype=torch.float16, requires_grad=True)
+            if param.ds_status == ZeroParamStatus.NOT_AVAILABLE: # free/partition param
                 partitioned_params.append(param)
-                all_gather_numel += param.ds_numel
+                all_gather_numel += param.ds_numel # param.numel()
+            else:
+                print(f"param: {param} and its ds_status: {param.ds_status}")
 
         if partitioned_params:
             self.__n_available_params += all_gather_numel
-            with get_accelerator().stream(self.__allgather_stream):
+            with get_accelerator().stream(self.__allgather_stream): # self._allgather_stream is unique stream per device
                 event_name = __class__.FORWARD_ALL_GATHER if forward else __class__.BACKWARD_ALL_GATHER
                 self.__profiler.start_event(event_name)
-                handle = partitioned_params[0].all_gather_coalesced(partitioned_params, forward)
+                # deepspeed.Init().all_gather_coalesced
+                handle = partitioned_params[0].all_gather_coalesced(partitioned_params, forward) # Async total elements
+                # param.all_gather_coalsced --> _dist_allgather_fn(async_op = ) --> async_op=True --> dist.allgather_fn(async_op = True)
+                #return AllGatherCoalescedHandle # --> Async 가능.
                 self.__profiler.stop_event(event_name, all_gather_numel)
 
             for param in partitioned_params:
@@ -493,14 +524,17 @@ class PartitionedParameterCoordinator:
         swap_in_params = []
         for param_in_trace in self.__param_queue:
             param = param_in_trace.param
-            if param.nvme_swapper is None:
+            if param.nvme_swapper is None: # => AsyncPartitionedParameterSwapper(_ds_config, self.dtype)
+                # This is set to the Async Param swapper if remote device is nvme
+                # else this is set to None
                 continue
             if (numel_considered > 2 * numel_in_flight
-                    or len(swap_in_params) >= param.nvme_swapper.available_swap_in_buffers()):
+                    or len(swap_in_params) >= param.nvme_swapper.available_swap_in_buffers()): # buffer(가) Param: Field(5, ge=0), optimiaer: Field(4, ge=0)
                 break
             if param.ds_tensor.status == PartitionedParamStatus.NOT_AVAILABLE:
                 swap_in_params.append(param)
             numel_considered += param.ds_numel
 
-        if swap_in_params:
+        if swap_in_params: # 근데 그냥 buffer자리, in_flight자리가 남으면 그냥 pre_forward_hook때 swap_in 하는 것 같음. --> async이긴 한데, 이렇게 했을 때 막상 자기 모듈실행할때는 자기 item이 오는게맞나?
+            # 자기 item이 오는건 무조건 pre_forward_hook에서 먼저 CPU->GPU로 불러오고, NVMe로 불러오는건 그 전에 함 (iter=1일때는 X)
             swap_in_params[0].nvme_swapper.swap_in(swap_in_params, async_op=True)
