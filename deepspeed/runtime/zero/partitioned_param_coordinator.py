@@ -9,7 +9,7 @@ from collections import UserDict
 from typing import Deque, Set
 
 from deepspeed import comm as dist
-from deepspeed.utils.logging import logger
+from deepspeed.utils.logging import logger, log_dist, log_dist_all_gpus
 from deepspeed.runtime.zero.offload_config import OffloadDeviceEnum
 from deepspeed.runtime.zero.partition_parameters import *
 from deepspeed.runtime.zero.partitioned_param_profiler import PartitionedParameterProfiler
@@ -251,10 +251,10 @@ class PartitionedParameterCoordinator:
     #@instrument_w_nvtx
     #@torch.no_grad()
     def fetch_sub_module(self, current_submodule: Module, forward: bool) -> None:
-        #import sys
+        import sys
         # pre_sub_module_forward_function
-        #print(f"fetch_sub_module {sys._getframe().f_back.f_code.co_name}") # from pre_sub_module_forward_function()
-        #print(f"fetch_sub_module: {current_submodule} and forward: {forward}") # 왜 전체 model?
+        #print_rank_0(f"fetch_sub_module {sys._getframe().f_back.f_code.co_name}", force=True) # from pre_sub_module_forward_function()
+        #print_rank_0(f"fetch_sub_module: {current_submodule} and forward: {forward}", force=True) # 왜 전체 model?
         """This method does the following (in order):
         1. kick off fetch for parameters in immediately required sub module
         2. kick off fetch for next few parameters we will need later (prefetch) 
@@ -262,28 +262,31 @@ class PartitionedParameterCoordinator:
         --> Q. 얼만큼 올리지의 기준이 gpu mem/current computation time이 아니라, 미리 정해둔 만큼만 pre-fetch..? 
         --> Q. sync걸고 block해서 와야할 param기다리는 시간이 걸리는게 있나? (X. 지금 자기param은 pre로 시작전에 무조건 들고오도록 하니까. 
         # Q. --> 근데 computation 시작 전에 아직 param다 all-gather 못했으면?? --> sync 거나? (pre-forward로 async하게 들고오니까, computation은 무조건 그 뒤에 신경씀. --> prefetch로 미리 들고온게 있으면 NOT_AVAILBABE이 수정되어있지 않을까) 그 다음 pre-fetch를 그냥 다음 elem중의 첫번째 elem으로 무조건 하나만 들고오나?
+        
         # Q. --> computation_time을 cost로 신경써서, overlapping 할 수 있는만큼만 들고오게 못할까? (partition마찬가지로)) --> 얼만큼 미리 들고
         # Q. partition 크기를 미리 gpu memory고려해서 잘라두는건가? ==> partition_size를 어떻게 골라? (그냥 /GPUs?)
         3. block on parameters in immediately required sub module
         """
-        if logger.isEnabledFor(logging.DEBUG):
-            debug_rank0(
-                f"{self.__step_id}: M{current_submodule.id}({type(current_submodule).__name__}) P{[p.ds_id for p in iter_params(current_submodule)]} "
-                + str({
-                    "avail": f"{self.__n_available_params:.1e}",
-                    "queue_sz": f"{len(self.__param_queue or [])}",
-                    "inflight": [p.ds_id for p in self.__inflight_param_registry],
-                }))
+        #if logger.isEnabledFor(logging.DEBUG):
+        print_rank_0(
+            f"{self.__step_id}: M{current_submodule.id}({type(current_submodule).__name__}) P{[p.ds_id for p in iter_params(current_submodule)]} "
+            + str({
+                "avail": f"{self.__n_available_params:.1e}",
+                "queue_sz": f"{len(self.__param_queue or [])}",
+                "inflight": [p.ds_id for p in self.__inflight_param_registry],
+            }), force=True)
 
         params_to_fetch = frozenset(iter_params(current_submodule))
         #print(f"params_to_fetch: {params_to_fetch}")
         fetch_numel = sum(
             [p.partition_numel() for p in params_to_fetch if p.ds_status == ZeroParamStatus.NOT_AVAILABLE]) # CPU에 있는게 맞는지(정확히 의미는 다르지만 이런의미). free_param or partitioned_param
-        NVMe_params_numel = [p.partition_numel() for p in params_to_fetch if p.ds_status == ZeroParamStatus.INFLIGHT] # INFLIGHT or AVAILABLE (이미 GPU마다 partition param을 가지고 있음)
+        NVMe_params_numel = [(p.ds_tensor.status, p.ds_tensor.final_location) for p in params_to_fetch if (p.ds_status == ZeroParamStatus.INFLIGHT) and (p.ds_tensor.status == PartitionedParamStatus.INFLIGHT)] # INFLIGHT or AVAILABLE (이미 GPU마다 partition param을 가지고 있음)
+        # p.ds_tensor.status == all is PartitionedParameterStatus.AVAILABLE
         if NVMe_params_numel:
             print(f"NVMe_params_numel: {NVMe_params_numel}")
         #print(f"fetch_numel: {fetch_numel}") # number of free_param/partitioned_param
         if fetch_numel > 0:
+            print(f"fetch_numel: {fetch_numel}")
             event_name = __class__.FORWARD_FETCH_SUBMIT if forward else __class__.BACKWARD_FETCH_SUBMIT
             self._dump_param_ids(event_name, current_submodule.id,
                                  [p.ds_id for p in params_to_fetch if p.ds_status == ZeroParamStatus.NOT_AVAILABLE])
@@ -317,7 +320,10 @@ class PartitionedParameterCoordinator:
                     # Wait ensures the operation is enqueued, but not necessarily complete.
                     # 앞전의 _all_gather로 모든 parame이 다 all-gather되었을 때 torch.dsitributed.all_gather_tensor_into(async_op=True)
                     # device마다 partitioned된 param들이 async하게 잘 들어갔는지 wait
+                    #print(f"BEFORE WAIT, PARAM STATUS: {param.ds_status}")
                     self.__inflight_param_registry.pop(param).wait() # 아까 _all_gather안에서의 torch.distributed.all_gather_tensor_into의 output: AllGatherCoalescedHandle . handle.wait
+                    #if param.ds_status == ZeroParamStatus.INFLIGHT:
+                    #    print(f"!! STILL IN INFLIGHT, AFTER WAIT, PARAM STATUS: {param.ds_config()}")
                     # Async work handle, if async_op is set to True. None, if not async_op or if not part of the group
                     event = get_accelerator().Event()
                     event.record() # Uses torch.cuda.current_stream() --> default stream if no stream is specified. 
@@ -338,6 +344,7 @@ class PartitionedParameterCoordinator:
             discarded_from_prefetch_queue = set()
             params_not_already_fetched = set(
                 filter(lambda p: self.__most_recent_step_id_param_fetched_for[p] < self.__step_id, params_to_fetch))
+            #print_rank_0(f"self.__param_queue : {self.__param_queue }, current_submodule: {current_submodule}", force=True)
             while self.__param_queue and len(discarded_from_prefetch_queue) < len(params_not_already_fetched):
                 param_in_trace = self.__param_queue.popleft()
                 self.__most_recent_step_id_param_fetched_for[
@@ -361,15 +368,19 @@ class PartitionedParameterCoordinator:
 
             # kick off all gather for params in the next few submodules (prefetch)
             if self.__prefetch_bucket_sz > 0: # DeepSpeedZeRoOfflaod(prefetch_bucket_sz=50000000)
+                #print_rank_0(f"if self.__prefetch_bucket_sz > 0: {self.__prefetch_bucket_sz}", force=True)
                 max_params_to_prefetch = min(self.__max_n_available_params - self.__n_available_params,
-                                             self.__prefetch_bucket_sz)
-                params_to_prefetch = set()
+                                             self.__prefetch_bucket_sz) # when: 올리는 시점 기준
+                params_to_prefetch = set() # no duplicate!
                 numel_prefetching = 0
                 #print(f"self.__param_queue: {self.__param_queue}") # [PartitionedParameterCoordinator.__ParamInTrace(param=Parameter containing:), PartitionedParameterCoordinator.__ParamInTrace(param=Parameter containing:)]
                 while self.__param_queue and numel_prefetching < max_params_to_prefetch:
+                    #print("while")
                     param_in_trace: __class__.__ParamInTrace = self.__param_queue.popleft()
 
                     if _is_currently_on_nvme(param_in_trace.param):
+                        #print("if _is_currently_on_nvme(param_in_trace.param)") #not
+                        #print_rank_0("if _is_currently_on_nvme(param_in_trace.param):", force=True) #not
                         # nvme prefetch is handled elsewhere. Need to break here to preserve fetch order
                         self.__param_queue.appendleft(param_in_trace) # 아직 CPU가 아닌 NVMe에 있으면 얘는 지금 당장에 pre_fetch할 수 X
                         break # 아예 while 종료, 해당 param은 물론 뒤의 순서 들의 param도 아직까지 NVMe에 있으므로, CPU->GPU로 미리 pre-fetch할 수 있는게 없음.
@@ -379,30 +390,39 @@ class PartitionedParameterCoordinator:
                         # [NOTE 이거 확인하기!!] 어디까지 보낼지는 --> max_numel_prefetching으로 단순히 상수값으로 정함. --> cmoputatino latency를 상관안쓰는 듯?? --> 내(i+1)꺼 실행하기 전에도 i+1 layer의 param미리 prefetching한게(시점 layer i일 때) 계속 inflight일 수 있음 --> 이 경우, wait를 사용해서 기다리므로, 비효율적!!!!
                     do_prefetch = param_in_trace.param.ds_status == ZeroParamStatus.NOT_AVAILABLE # free/partition된 상태로 아직 CPU에 있으면서! GPU에 올라오지 않음.
                     if param_in_trace.param in params_to_prefetch: # 이미 한번 prefetch를 진행한 경우.
+                        #print("other") #yes
+                        #print_rank_0("if param_in_trace.param in params_to_prefetch:", force=True) #yes
                         # Avoid duplicates
                         do_prefetch = False
-
                     self.__most_recent_step_id_param_fetched_for[param_in_trace.param] = \
-                        max(self.__most_recent_step_id_param_fetched_for[param_in_trace.param],
+                        max(self.__most_recent_step_id_param_fetched_for[param_in_trace.param], # 원래 init 값이 1e-9임.
                             param_in_trace.step_id_last_used_at)
 
                     if do_prefetch:
+                        #print("do_prefetch: True") # yes
+                        #print_rank_0("rank 0: do_prefetch", force=True) #yes
                         params_to_prefetch.add(param_in_trace.param)
+                        #log_dist_all_gpus("ranks 1: do_prefetch", ranks=1)
+                        print_rank_0(f"PREFETCHING {current_submodule}", force=True)
                         numel_prefetching += param_in_trace.param.ds_numel
 
                 if numel_prefetching > 0:
                     event_name = __class__.FORWARD_PREFETCH_SUBMIT if forward else __class__.BACKWARD_PREFETCH_SUBMIT
                     self.__profiler.start_event(event_name)
-                    if logger.isEnabledFor(logging.DEBUG):
-                        for param in params_to_prefetch:
-                            debug_rank0(f"-prefetch: {param.ds_summary()}")
-                    self.__all_gather_params(params_to_prefetch, forward) # CPU->GPU
+                    #if logger.isEnabledFor(logging.DEBUG):
+                    for param in params_to_prefetch: # gpu마다 보내는 tensor는 동일한 것 같음.
+                        #device=get_accelerator().current_device_name()
+                        print(f"self.__step_id: {self.__step_id}, -prefetch: {param.ds_summary(use_debug_name=True)}, GPU: {get_accelerator().current_device_name()}") # --> Q. 모든 gpu가 동시에 던지나? (scheduling이 똑같이 진행될려나? --> 시점마다 param_queue가 다를 수 있을 것 같은데)
+                        #debug_rank0(f"-prefetch: {param.ds_summary()}")
+                    self.__all_gather_params(params_to_prefetch, forward) # CPU->GPU (이전에 미리 prefetch로 들고오는 거구나.. --> 이게 FLIGHT되는 듯)
                     self.__profiler.stop_event(event_name, numel_prefetching)
 
                 if self.__prefetch_nvme: # True/false
+                    print("swap in")
                     self.__prefetch_nvme_param_partitions()
 
         self.__step_id += 1
+        print("==========end============")
 
     @instrument_w_nvtx
     @torch.no_grad()
@@ -445,8 +465,8 @@ class PartitionedParameterCoordinator:
             if param.ds_status == ZeroParamStatus.NOT_AVAILABLE: # free/partition param
                 partitioned_params.append(param)
                 all_gather_numel += param.ds_numel # param.numel()
-            else:
-                print(f"param: {param} and its ds_status: {param.ds_status}")
+            #else:
+            #    print(f"param: {param} and its ds_status: {param.ds_status}")
 
         if partitioned_params:
             self.__n_available_params += all_gather_numel
@@ -530,8 +550,10 @@ class PartitionedParameterCoordinator:
                 continue
             if (numel_considered > 2 * numel_in_flight
                     or len(swap_in_params) >= param.nvme_swapper.available_swap_in_buffers()): # buffer(가) Param: Field(5, ge=0), optimiaer: Field(4, ge=0)
+                print("break")
                 break
             if param.ds_tensor.status == PartitionedParamStatus.NOT_AVAILABLE:
+                print_rank_0(f"swap_in param: {param.ds_summary(use_debug_name=True)}", force=True)
                 swap_in_params.append(param)
             numel_considered += param.ds_numel
 
