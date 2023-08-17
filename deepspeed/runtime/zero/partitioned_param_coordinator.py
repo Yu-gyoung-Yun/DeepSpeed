@@ -302,6 +302,7 @@ class PartitionedParameterCoordinator:
                         self.__ongoing_fetch_events.popleft().synchronize()
                     handle = self.__inflight_param_registry.pop(param)
                     if type(handle) is tuple: # host side all-gather
+                        print_rank_0("if type(ahndle) is tuple", force=True)
                         if not handle[0]: # waiting host side all-gather
                             get_accelerator.current_stream().wait_stream(handle[1])
                     else:
@@ -442,6 +443,8 @@ class PartitionedParameterCoordinator:
                 self.__profiler.stop_event(event_name, all_gather_numel)
 
             for param in partitioned_params:
+                #if param.ds_status == ZeroParamStatus.AVAILABLE:
+                #    continue
                 assert param.ds_status == ZeroParamStatus.INFLIGHT, param.ds_summary()
                 self.__inflight_param_registry[param] = handle
 
