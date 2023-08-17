@@ -615,7 +615,7 @@ class AllGatherCoalescedHandle:
 
         self.complete = True
 
-def host_combined(params, use_secondary_tensor, forward, world_size, partitions):
+def host_combined(params, use_secondary_tensor, forward, world_size, og_partitions):
     # split the single tensor out into individual tensors
     param_offset = 0
     for param in params:
@@ -627,15 +627,16 @@ def host_combined(params, use_secondary_tensor, forward, world_size, partitions)
         for rank in range(world_size):
             param_start = rank * ds_tensor_numel
             if param_start < param.ds_numel:
-                part_to_copy = partitions[rank].narrow(0, param_offset,
+                part_to_copy = og_partitions[rank].narrow(0, param_offset,
                                                             min(param.ds_numel - param_start, ds_tensor_numel))
                 partitions.append(part_to_copy)
         # Overlapping transfer if pinned memory
         param.data = instrument_w_nvtx(torch.cat)(partitions).view(param.ds_shape).to(get_accelerator().current_device_name(), non_blocking =True)
         param.ds_status = ZeroParamStatus.AVAILABLE
 
-        for part_to_copy in partitions:
-            part_to_copy.record_stream(get_accelerator().current_stream())
+        print(f"get_current_stream: {get_accelerator().current_stream()}")
+        #for part_to_copy in partitions:
+        #    part_to_copy.record_stream(get_accelerator().current_stream())
 
         param_offset += ds_tensor_numel
     return True
@@ -833,7 +834,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
         self.rank = dist.get_rank(group=self.ds_process_group)
         self.dp_world_size = dist.get_world_size(group=self.ds_process_group)
-        self.hostorallgather = 0
+        self.hostorallgather = 1
         self.zero_param_process_group = zero_param_parallel_group
         if _ds_config is not None and _ds_config.zero_config.zero_hpz_partition_size > 1 and self.zero_param_process_group is None:
             groups._create_zero_param_parallel_group(_ds_config.zero_config.zero_hpz_partition_size)
@@ -842,7 +843,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         self.num_ranks_in_param_group = self.dp_world_size
         self.rank_in_group = self.rank
         self.num_param_groups = 1
-        self.__allgather_stream: get_accelerator().Stream
+        self.__allgather_stream = get_accelerator().Stream()
 
         if self.zero_param_process_group is not None:
             self.num_ranks_in_param_group = groups._get_zero_param_intra_parallel_group_world_size()
@@ -1175,7 +1176,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         )
                     self.hostorallgather += 1
                 elif self.hostorallgather == 1:
-                    self.hostorallgather = 0 #init
+                    print("self.host side all-gather")
+                    self.hostorallgather = 1 #init
                     #H2D
                     flat_tensor = torch.empty(partition_sz * world_size,
                                         dtype=get_only_unique_item(p.dtype
@@ -1196,12 +1198,12 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                             instrument_w_nvtx(
                                 torch.cat)([p.ds_tensor for p in params], # #p.ds_tensor가 이미 self.buffer(cpu.pin_memory())임
                                         out=partitions[rank_in_group])
-                        handle = False
+                        #handle = False
                         #with get_accelerator().stream(self.__allgather_stream):
                         with get_accelerator().stream(self.__allgather_stream): # Event로 수정해야할 듯
                             # host work + gpu work
-                            handle = host_combined(param, use_secondary_tensor, world_size, partitions) # Async하게 stream하나 생성해야해.
-                        return (handle, self.__allgather_stream) # done
+                            cpu_handle = host_combined(params, use_secondary_tensor, forward, world_size, partitions) # Async하게 stream하나 생성해야해.
+                        return (cpu_handle, self.__allgather_stream) # done
                     else:
                         if params[0].ds_secondary_tensor is not None and not forward:
                             use_secondary_tensor = True
