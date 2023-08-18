@@ -578,8 +578,10 @@ class AllGatherCoalescedHandle:
     def wait(self) -> None:
         if self.complete:
             return
-
-        instrument_w_nvtx(self.allgather_handle.wait)()
+        ret = self.allgather_handle.wait
+        print_rank_0(f"ret: {ret}", force=True)
+        #instrument_w_nvtx(self.allgather_handle.wait)()
+        print_rank_0(f"self.allgather_handle: {self.allgather_handle.__dict__}", force=True)
 
         if self.quantization:
             instrument_w_nvtx(self.quantization.quant_handle.wait)()
@@ -615,7 +617,7 @@ class AllGatherCoalescedHandle:
 
         self.complete = True
 
-def host_combined(params, use_secondary_tensor, forward, world_size, og_partitions):
+def host_combined(params, use_secondary_tensor, forward, world_size, og_partitions, asyn_stream):
     # split the single tensor out into individual tensors
     param_offset = 0
     for param in params:
@@ -631,7 +633,12 @@ def host_combined(params, use_secondary_tensor, forward, world_size, og_partitio
                                                             min(param.ds_numel - param_start, ds_tensor_numel))
                 partitions.append(part_to_copy)
         # Overlapping transfer if pinned memory
-        param.data = instrument_w_nvtx(torch.cat)(partitions).view(param.ds_shape).pin_memory().to(get_accelerator().current_device_name(), non_blocking =True)
+        #with torch.cuda.stream()
+        torch.cuda.nvtx.range_push(f"host_combin w/ {param.ds_id}")
+        with get_accelerator().stream(asyn_stream): # 여기서 serialize되는 듯. 같은 stream에 넣으니까
+            param.data = torch.cat(partitions).view(param.ds_shape).pin_memory().to(get_accelerator().current_device_name(), non_blocking =True)
+        # param.data를 쪼개서 지금처럼 보내되, 언제 넣을지를 
+        torch.cuda.nvtx.range_pop()
         param.ds_status = ZeroParamStatus.AVAILABLE
 
         #print(f"get_current_stream: {get_accelerator().current_stream()}")
@@ -835,7 +842,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         self.rank = dist.get_rank(group=self.ds_process_group)
         self.dp_world_size = dist.get_world_size(group=self.ds_process_group)
         self.hostorallgather = 0
-        self.threshold = 70
+        self.threshold = 50
         self.zero_param_process_group = zero_param_parallel_group
         if _ds_config is not None and _ds_config.zero_config.zero_hpz_partition_size > 1 and self.zero_param_process_group is None:
             groups._create_zero_param_parallel_group(_ds_config.zero_config.zero_hpz_partition_size)
@@ -844,7 +851,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         self.num_ranks_in_param_group = self.dp_world_size
         self.rank_in_group = self.rank
         self.num_param_groups = 1
-        self.__allgather_stream = get_accelerator().Stream()
+        self.__asyn_stream = get_accelerator().Stream()
 
         if self.zero_param_process_group is not None:
             self.num_ranks_in_param_group = groups._get_zero_param_intra_parallel_group_world_size()
@@ -1110,9 +1117,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 if params[0].ds_secondary_tensor is not None and not forward:
                     partition_sz = sum(p.ds_tensor.ds_numel * p.ds_secondary_tensor_num_of_groups for p in params)
 
-                if self.hostorallgather < self.threshold:
+                if self.hostorallgather  < self.threshold:
                     #H2D
-                    self.hostorallgather += 1
+                    #self.hostorallgather += 1
                     flat_tensor = torch.empty(partition_sz * world_size,
                                             dtype=get_only_unique_item(p.dtype
                                                                         for p in params) if not quant else torch.int8,
@@ -1177,13 +1184,13 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                             quantization=quant_info,
                         )
                 elif self.hostorallgather == self.threshold:
-                    #print("self.host side all-gather")
+                    print_rank_0("self.host side all-gather", force=True)
                     self.hostorallgather = 0 #init
                     #H2D
                     flat_tensor = torch.empty(partition_sz * world_size,
                                         dtype=get_only_unique_item(p.dtype
                                                                     for p in params) if not quant else torch.int8,
-                                        #device=get_accelerator().current_device_name(),
+                                        device=get_accelerator().current_device_name(),
                                         requires_grad=False)
                     if not quant:
                         partitions: List[Parameter] = []
@@ -1196,15 +1203,16 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                                 [p.ds_secondary_tensor for p in params],
                                 out=partitions[rank_in_group])
                         else:
+                            # all-gather가 이미 async stream안에 들어옴.
                             instrument_w_nvtx(
-                                torch.cat)([p.ds_tensor for p in params], # #p.ds_tensor가 이미 self.buffer(cpu.pin_memory())임
+                                torch.cat)([p.ds_tensor.to(get_accelerator().current_device_name()) for p in params], # #p.ds_tensor가 이미 self.buffer(cpu.pin_memory())임
                                         out=partitions[rank_in_group])
                         #handle = False
                         #with get_accelerator().stream(self.__allgather_stream):
                         #with get_accelerator().stream(self.__allgather_stream): # Event로 수정해야할 듯
                             # host work + gpu work
                         print_rank_0("here", force=True)
-                        cpu_handle = host_combined(params, use_secondary_tensor, forward, world_size, partitions) # Async하게 stream하나 생성해야해.
+                        cpu_handle = host_combined(params, use_secondary_tensor, forward, world_size, partitions, self.__asyn_stream) # Async하게 stream하나 생성해야해.
                         return tuple([cpu_handle]) #, self.__allgather_stream) # done
                     else:
                         if params[0].ds_secondary_tensor is not None and not forward:
