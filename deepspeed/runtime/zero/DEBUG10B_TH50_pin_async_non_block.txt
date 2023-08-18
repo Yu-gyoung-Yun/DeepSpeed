@@ -1,0 +1,1740 @@
+[2023-08-18 11:38:34,521] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:35,592] [WARNING] [runner.py:196:fetch_hostfile] Unable to find hostfile, will proceed with training with local resources only.
+[2023-08-18 11:38:35,642] [INFO] [runner.py:555:main] cmd = /opt/conda/bin/python -u -m deepspeed.launcher.launch --world_info=eyJsb2NhbGhvc3QiOiBbMCwgMSwgMiwgMywgNCwgNSwgNiwgN119 --master_addr=127.0.0.1 --master_port=29500 --enable_each_rank_log=None ./pretrain_gpt.py --tensor-model-parallel-size 1 --pipeline-model-parallel-size 1 --num-layers 50 --hidden-size 4096 --num-attention-heads 16 --seq-length 1024 --loss-scale 12 --max-position-embeddings 1024 --micro-batch-size 8 --global-batch-size 64 --train-iters 2 --lr 6.0e-5 --min-lr 6.0e-6 --lr-decay-style cosine --log-interval 1 --eval-iters 0 --eval-interval 1000 --data-path /apex/DeepSpeed/Megatron-DeepSpeed/dataset/BookCorpusDataset_text_document --vocab-file /apex/DeepSpeed/tests/unit/gpt2-vocab.json --merge-file /apex/DeepSpeed/tests/unit/gpt2-merges.txt --save-interval 1000 --split 98,2,0 --clip-grad 1.0 --weight-decay 0.1 --adam-beta1 0.9 --adam-beta2 0.95 --init-method-std 0.006 --fp16 --checkpoint-activations --tensorboard-dir ./log/ds_z3_nl50_hs4096_gb64_mb8 --contigious-checkpointing --synchronize-each-layer --partition-activations --deepspeed-activation-checkpointing --zero-stage=3 --deepspeed_config=/apex/DeepSpeed/Megatron-DeepSpeed/scripts/zero3_comm.json --no-pipeline-parallel --deepspeed --exit-interval 5000
+[2023-08-18 11:38:36,543] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NV_LIBNCCL_DEV_PACKAGE=libnccl-dev=2.13.4-1+cuda11.7
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NV_LIBNCCL_DEV_PACKAGE_VERSION=2.13.4-1
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NCCL_VERSION=2.13.4-1
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NCCL_DEBUG=warn
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NV_LIBNCCL_DEV_PACKAGE_NAME=libnccl-dev
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NV_LIBNCCL_PACKAGE=libnccl2=2.13.4-1+cuda11.7
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NV_LIBNCCL_PACKAGE_NAME=libnccl2
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NV_LIBNCCL_PACKAGE_VERSION=2.13.4-1
+[2023-08-18 11:38:37,557] [INFO] [launch.py:138:main] 0 NCCL_LAUNCH_MODE=GROUP
+[2023-08-18 11:38:37,557] [INFO] [launch.py:145:main] WORLD INFO DICT: {'localhost': [0, 1, 2, 3, 4, 5, 6, 7]}
+[2023-08-18 11:38:37,557] [INFO] [launch.py:151:main] nnodes=1, num_local_procs=8, node_rank=0
+[2023-08-18 11:38:37,557] [INFO] [launch.py:162:main] global_rank_mapping=defaultdict(<class 'list'>, {'localhost': [0, 1, 2, 3, 4, 5, 6, 7]})
+[2023-08-18 11:38:37,557] [INFO] [launch.py:163:main] dist_world_size=8
+[2023-08-18 11:38:37,557] [INFO] [launch.py:165:main] Setting CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+[2023-08-18 11:38:38,537] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:38,550] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:38,609] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:38,632] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:38,670] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:38,717] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:38,724] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-08-18 11:38:38,733] [INFO] [real_accelerator.py:133:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+--------------------------------------------------
+DeepSpeed C++/CUDA extension op report
+--------------------------------------------------
+NOTE: Ops not installed will be just-in-time (JIT) compiled at
+      runtime if needed. Op compatibility means that your system
+      meet the required dependencies to JIT install the op.
+--------------------------------------------------
+JIT compiled ops requires ninja
+ninja .................. [92m[OKAY][0m
+--------------------------------------------------
+op name ................ installed .. compatible
+--------------------------------------------------
+--------------------------------------------------
+DeepSpeed C++/CUDA extension op report
+--------------------------------------------------
+NOTE: Ops not installed will be just-in-time (JIT) compiled at
+      runtime if needed. Op compatibility means that your system
+      meet the required dependencies to JIT install the op.
+--------------------------------------------------
+JIT compiled ops requires ninja
+ninja .................. [92m[OKAY][0m
+--------------------------------------------------
+op name ................ installed .. compatible
+--------------------------------------------------
+--------------------------------------------------
+DeepSpeed C++/CUDA extension op report
+--------------------------------------------------
+NOTE: Ops not installed will be just-in-time (JIT) compiled at
+      runtime if needed. Op compatibility means that your system
+      meet the required dependencies to JIT install the op.
+--------------------------------------------------
+JIT compiled ops requires ninja
+ninja .................. [92m[OKAY][0m
+--------------------------------------------------
+op name ................ installed .. compatible
+--------------------------------------------------
+--------------------------------------------------
+DeepSpeed C++/CUDA extension op report
+--------------------------------------------------
+NOTE: Ops not installed will be just-in-time (JIT) compiled at
+      runtime if needed. Op compatibility means that your system
+      meet the required dependencies to JIT install the op.
+--------------------------------------------------
+JIT compiled ops requires ninja
+ninja .................. [92m[OKAY][0m
+--------------------------------------------------
+op name ................ installed .. compatible
+--------------------------------------------------
+--------------------------------------------------
+DeepSpeed C++/CUDA extension op report
+--------------------------------------------------
+NOTE: Ops not installed will be just-in-time (JIT) compiled at
+      runtime if needed. Op compatibility means that your system
+      meet the required dependencies to JIT install the op.
+--------------------------------------------------
+JIT compiled ops requires ninja
+ninja .................. [92m[OKAY][0m
+--------------------------------------------------
+op name ................ installed .. compatible
+--------------------------------------------------
+--------------------------------------------------
+DeepSpeed C++/CUDA extension op report
+--------------------------------------------------
+NOTE: Ops not installed will be just-in-time (JIT) compiled at
+      runtime if needed. Op compatibility means that your system
+      meet the required dependencies to JIT install the op.
+--------------------------------------------------
+JIT compiled ops requires ninja
+ninja .................. [92m[OKAY][0m
+--------------------------------------------------
+op name ................ installed .. compatible
+--------------------------------------------------
+--------------------------------------------------
+DeepSpeed C++/CUDA extension op report
+--------------------------------------------------
+NOTE: Ops not installed will be just-in-time (JIT) compiled at
+      runtime if needed. Op compatibility means that your system
+      meet the required dependencies to JIT install the op.
+--------------------------------------------------
+JIT compiled ops requires ninja
+ninja .................. [92m[OKAY][0m
+--------------------------------------------------
+op name ................ installed .. compatible
+--------------------------------------------------
+--------------------------------------------------
+DeepSpeed C++/CUDA extension op report
+--------------------------------------------------
+NOTE: Ops not installed will be just-in-time (JIT) compiled at
+      runtime if needed. Op compatibility means that your system
+      meet the required dependencies to JIT install the op.
+--------------------------------------------------
+JIT compiled ops requires ninja
+ninja .................. [92m[OKAY][0m
+--------------------------------------------------
+op name ................ installed .. compatible
+--------------------------------------------------
+async_io ............... [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adagrad ............ [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adam ............... [92m[YES][0m ...... [92m[OKAY][0m
+fused_adam ............. [92m[YES][0m ...... [92m[OKAY][0m
+fused_lamb ............. [92m[YES][0m ...... [92m[OKAY][0m
+quantizer .............. [92m[YES][0m ...... [92m[OKAY][0m
+random_ltd ............. [92m[YES][0m ...... [92m[OKAY][0m
+[93m [WARNING] [0m please install triton==1.0.0 if you want to use sparse attention
+sparse_attn ............ [93m[NO][0m ....... [93m[NO][0m
+async_io ............... [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adagrad ............ [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adam ............... [92m[YES][0m ...... [92m[OKAY][0m
+fused_adam ............. [92m[YES][0m ...... [92m[OKAY][0m
+fused_lamb ............. [92m[YES][0m ...... [92m[OKAY][0m
+quantizer .............. [92m[YES][0m ...... [92m[OKAY][0m
+random_ltd ............. [92m[YES][0m ...... [92m[OKAY][0m
+[93m [WARNING] [0m please install triton==1.0.0 if you want to use sparse attention
+sparse_attn ............ [93m[NO][0m ....... [93m[NO][0m
+async_io ............... [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adagrad ............ [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adam ............... [92m[YES][0m ...... [92m[OKAY][0m
+fused_adam ............. [92m[YES][0m ...... [92m[OKAY][0m
+fused_lamb ............. [92m[YES][0m ...... [92m[OKAY][0m
+quantizer .............. [92m[YES][0m ...... [92m[OKAY][0m
+random_ltd ............. [92m[YES][0m ...... [92m[OKAY][0m
+[93m [WARNING] [0m please install triton==1.0.0 if you want to use sparse attention
+sparse_attn ............ [93m[NO][0m ....... [93m[NO][0m
+spatial_inference ...... [92m[YES][0m ...... [92m[OKAY][0m
+transformer ............ [92m[YES][0m ...... [92m[OKAY][0m
+stochastic_transformer . [92m[YES][0m ...... [92m[OKAY][0m
+async_io ............... [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adagrad ............ [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adam ............... [92m[YES][0m ...... [92m[OKAY][0m
+fused_adam ............. [92m[YES][0m ...... [92m[OKAY][0m
+fused_lamb ............. [92m[YES][0m ...... [92m[OKAY][0m
+quantizer .............. [92m[YES][0m ...... [92m[OKAY][0m
+random_ltd ............. [92m[YES][0m ...... [92m[OKAY][0m
+[93m [WARNING] [0m please install triton==1.0.0 if you want to use sparse attention
+sparse_attn ............ [93m[NO][0m ....... [93m[NO][0m
+spatial_inference ...... [92m[YES][0m ...... [92m[OKAY][0m
+transformer ............ [92m[YES][0m ...... [92m[OKAY][0m
+stochastic_transformer . [92m[YES][0m ...... [92m[OKAY][0m
+async_io ............... [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adagrad ............ [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adam ............... [92m[YES][0m ...... [92m[OKAY][0m
+fused_adam ............. [92m[YES][0m ...... [92m[OKAY][0m
+fused_lamb ............. [92m[YES][0m ...... [92m[OKAY][0m
+quantizer .............. [92m[YES][0m ...... [92m[OKAY][0m
+random_ltd ............. [92m[YES][0m ...... [92m[OKAY][0m
+[93m [WARNING] [0m please install triton==1.0.0 if you want to use sparse attention
+sparse_attn ............ [93m[NO][0m ....... [93m[NO][0m
+transformer_inference .. [92m[YES][0m ...... [92m[OKAY][0m
+--------------------------------------------------
+transformer_inference .. [92m[YES][0m ...... [92m[OKAY][0m
+--------------------------------------------------
+async_io ............... [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adagrad ............ [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adam ............... [92m[YES][0m ...... [92m[OKAY][0m
+fused_adam ............. [92m[YES][0m ...... [92m[OKAY][0m
+fused_lamb ............. [92m[YES][0m ...... [92m[OKAY][0m
+quantizer .............. [92m[YES][0m ...... [92m[OKAY][0m
+random_ltd ............. [92m[YES][0m ...... [92m[OKAY][0m
+[93m [WARNING] [0m please install triton==1.0.0 if you want to use sparse attention
+sparse_attn ............ [93m[NO][0m ....... [93m[NO][0m
+DeepSpeed general environment info:
+torch install path ............... ['/opt/conda/lib/python3.8/site-packages/torch']
+torch version .................... 1.13.0+7c98e70.cu11.7
+deepspeed install path ........... ['/opt/conda/lib/python3.8/site-packages/deepspeed']
+deepspeed info ................... 0.10.0+f5c834a6, f5c834a6, HEAD
+torch cuda version ............... 11.7
+torch hip version ................ None
+nvcc version ..................... 11.7
+deepspeed wheel compiled w. ...... torch 1.13, cuda 11.7
+async_io ............... [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adagrad ............ [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adam ............... [92m[YES][0m ...... [92m[OKAY][0m
+fused_adam ............. [92m[YES][0m ...... [92m[OKAY][0m
+fused_lamb ............. [92m[YES][0m ...... [92m[OKAY][0m
+quantizer .............. [92m[YES][0m ...... [92m[OKAY][0m
+random_ltd ............. [92m[YES][0m ...... [92m[OKAY][0m
+[93m [WARNING] [0m please install triton==1.0.0 if you want to use sparse attention
+sparse_attn ............ [93m[NO][0m ....... [93m[NO][0m
+async_io ............... [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adagrad ............ [92m[YES][0m ...... [92m[OKAY][0m
+cpu_adam ............... [92m[YES][0m ...... [92m[OKAY][0m
+fused_adam ............. [92m[YES][0m ...... [92m[OKAY][0m
+fused_lamb ............. [92m[YES][0m ...... [92m[OKAY][0m
+quantizer .............. [92m[YES][0m ...... [92m[OKAY][0m
+random_ltd ............. [92m[YES][0m ...... [92m[OKAY][0m
+[93m [WARNING] [0m please install triton==1.0.0 if you want to use sparse attention
+sparse_attn ............ [93m[NO][0m ....... [93m[NO][0m
+DeepSpeed general environment info:
+torch install path ............... ['/opt/conda/lib/python3.8/site-packages/torch']
+torch version .................... 1.13.0+7c98e70.cu11.7
+deepspeed install path ........... ['/opt/conda/lib/python3.8/site-packages/deepspeed']
+deepspeed info ................... 0.10.0+f5c834a6, f5c834a6, HEAD
+torch cuda version ............... 11.7
+torch hip version ................ None
+nvcc version ..................... 11.7
+deepspeed wheel compiled w. ...... torch 1.13, cuda 11.7
+spatial_inference ...... [92m[YES][0m ...... [92m[OKAY][0m
+transformer ............ [92m[YES][0m ...... [92m[OKAY][0m
+stochastic_transformer . [92m[YES][0m ...... [92m[OKAY][0m
+spatial_inference ...... [92m[YES][0m ...... [92m[OKAY][0m
+transformer ............ [92m[YES][0m ...... [92m[OKAY][0m
+stochastic_transformer . [92m[YES][0m ...... [92m[OKAY][0m
+transformer_inference .. [92m[YES][0m ...... [92m[OKAY][0m
+--------------------------------------------------
+spatial_inference ...... [92m[YES][0m ...... [92m[OKAY][0m
+transformer ............ [92m[YES][0m ...... [92m[OKAY][0m
+stochastic_transformer . [92m[YES][0m ...... [92m[OKAY][0m
+**** Git info for Megatron: git_hash=c2b0736 git_branch=main ****
+transformer_inference .. [92m[YES][0m ...... [92m[OKAY][0m
+--------------------------------------------------
+DeepSpeed general environment info:
+torch install path ............... ['/opt/conda/lib/python3.8/site-packages/torch']
+torch version .................... 1.13.0+7c98e70.cu11.7
+deepspeed install path ........... ['/opt/conda/lib/python3.8/site-packages/deepspeed']
+deepspeed info ................... 0.10.0+f5c834a6, f5c834a6, HEAD
+torch cuda version ............... 11.7
+torch hip version ................ None
+nvcc version ..................... 11.7
+deepspeed wheel compiled w. ...... torch 1.13, cuda 11.7
+**** Git info for Megatron: git_hash=c2b0736 git_branch=main ****
+spatial_inference ...... [92m[YES][0m ...... [92m[OKAY][0m
+transformer ............ [92m[YES][0m ...... [92m[OKAY][0m
+stochastic_transformer . [92m[YES][0m ...... [92m[OKAY][0m
+transformer_inference .. [92m[YES][0m ...... [92m[OKAY][0m
+--------------------------------------------------
+spatial_inference ...... [92m[YES][0m ...... [92m[OKAY][0m
+transformer ............ [92m[YES][0m ...... [92m[OKAY][0m
+stochastic_transformer . [92m[YES][0m ...... [92m[OKAY][0m
+spatial_inference ...... [92m[YES][0m ...... [92m[OKAY][0m
+transformer ............ [92m[YES][0m ...... [92m[OKAY][0m
+stochastic_transformer . [92m[YES][0m ...... [92m[OKAY][0m
+[2023-08-18 11:38:41,162] [WARNING] [comm.py:152:init_deepspeed_backend] NCCL backend in DeepSpeed not yet implemented
+[2023-08-18 11:38:41,162] [INFO] [comm.py:616:init_distributed] cdb=None
+DeepSpeed general environment info:
+torch install path ............... ['/opt/conda/lib/python3.8/site-packages/torch']
+torch version .................... 1.13.0+7c98e70.cu11.7
+deepspeed install path ........... ['/opt/conda/lib/python3.8/site-packages/deepspeed']
+deepspeed info ................... 0.10.0+f5c834a6, f5c834a6, HEAD
+torch cuda version ............... 11.7
+torch hip version ................ None
+nvcc version ..................... 11.7
+deepspeed wheel compiled w. ...... torch 1.13, cuda 11.7
+transformer_inference .. [92m[YES][0m ...... [92m[OKAY][0m
+--------------------------------------------------
+[2023-08-18 11:38:41,174] [WARNING] [comm.py:152:init_deepspeed_backend] NCCL backend in DeepSpeed not yet implemented
+[2023-08-18 11:38:41,174] [INFO] [comm.py:616:init_distributed] cdb=None
+DeepSpeed general environment info:
+torch install path ............... ['/opt/conda/lib/python3.8/site-packages/torch']
+torch version .................... 1.13.0+7c98e70.cu11.7
+deepspeed install path ........... ['/opt/conda/lib/python3.8/site-packages/deepspeed']
+deepspeed info ................... 0.10.0+f5c834a6, f5c834a6, HEAD
+torch cuda version ............... 11.7
+torch hip version ................ None
+nvcc version ..................... 11.7
+deepspeed wheel compiled w. ...... torch 1.13, cuda 11.7
+transformer_inference .. [92m[YES][0m ...... [92m[OKAY][0m
+--------------------------------------------------
+transformer_inference .. [92m[YES][0m ...... [92m[OKAY][0m
+--------------------------------------------------
+DeepSpeed general environment info:
+torch install path ............... ['/opt/conda/lib/python3.8/site-packages/torch']
+torch version .................... 1.13.0+7c98e70.cu11.7
+deepspeed install path ........... ['/opt/conda/lib/python3.8/site-packages/deepspeed']
+deepspeed info ................... 0.10.0+f5c834a6, f5c834a6, HEAD
+torch cuda version ............... 11.7
+torch hip version ................ None
+nvcc version ..................... 11.7
+deepspeed wheel compiled w. ...... torch 1.13, cuda 11.7
+DeepSpeed general environment info:
+torch install path ............... ['/opt/conda/lib/python3.8/site-packages/torch']
+torch version .................... 1.13.0+7c98e70.cu11.7
+deepspeed install path ........... ['/opt/conda/lib/python3.8/site-packages/deepspeed']
+deepspeed info ................... 0.10.0+f5c834a6, f5c834a6, HEAD
+torch cuda version ............... 11.7
+torch hip version ................ None
+nvcc version ..................... 11.7
+deepspeed wheel compiled w. ...... torch 1.13, cuda 11.7
+DeepSpeed general environment info:
+torch install path ............... ['/opt/conda/lib/python3.8/site-packages/torch']
+torch version .................... 1.13.0+7c98e70.cu11.7
+deepspeed install path ........... ['/opt/conda/lib/python3.8/site-packages/deepspeed']
+deepspeed info ................... 0.10.0+f5c834a6, f5c834a6, HEAD
+torch cuda version ............... 11.7
+torch hip version ................ None
+nvcc version ..................... 11.7
+deepspeed wheel compiled w. ...... torch 1.13, cuda 11.7
+**** Git info for Megatron: git_hash=c2b0736 git_branch=main ****
+**** Git info for Megatron: git_hash=c2b0736 git_branch=main ****
+[2023-08-18 11:38:41,327] [WARNING] [comm.py:152:init_deepspeed_backend] NCCL backend in DeepSpeed not yet implemented
+[2023-08-18 11:38:41,327] [INFO] [comm.py:616:init_distributed] cdb=None
+**** Git info for Megatron: git_hash=c2b0736 git_branch=main ****
+using world size: 8, data-parallel-size: 8, tensor-model-parallel size: 1, pipeline-model-parallel size: 1 
+using torch.float16 for parameters ...
+------------------------ arguments ------------------------
+  accumulate_allreduce_grads_in_fp32 .............. False
+  adam_beta1 ...................................... 0.9
+  adam_beta2 ...................................... 0.95
+  adam_eps ........................................ 1e-08
+  add_bias_linear ................................. True
+  add_position_embedding .......................... True
+  adlr_autoresume ................................. False
+  adlr_autoresume_interval ........................ 1000
+  aml_data_download_path .......................... None
+  apply_layernorm_1p .............................. False
+  apply_query_key_layer_scaling ................... True
+  apply_residual_connection_post_layernorm ........ False
+  async_tensor_model_parallel_allreduce ........... False
+  attention_dropout ............................... 0.1
+  attention_softmax_in_fp32 ....................... False
+  barrier_with_L1_time ............................ True
+  bert_binary_head ................................ True
+  bert_embedder_type .............................. megatron
+  bert_load ....................................... None
+  bf16 ............................................ False
+  bias_dropout_fusion ............................. True
+  bias_gelu_fusion ................................ True
+  biencoder_projection_dim ........................ 0
+  biencoder_shared_query_context_model ............ False
+  block_data_path ................................. None
+  checkpoint_activations .......................... True
+  checkpoint_in_cpu ............................... False
+  checkpoint_num_layers ........................... 1
+  classes_fraction ................................ 1.0
+  clip_grad ....................................... 1.0
+  compression_training ............................ False
+  consumed_train_samples .......................... 0
+  consumed_train_tokens ........................... 0
+  consumed_valid_samples .......................... 0
+  contigious_checkpointing ........................ True
+  cpu_optimizer ................................... False
+  cpu_torch_adam .................................. False
+  create_moe_param_group .......................... False
+  curriculum_learning_legacy ...................... False
+  data_cache_path ................................. None
+  data_efficiency_curriculum_learning ............. False
+  data_impl ....................................... infer
+  data_parallel_random_init ....................... False
+  data_parallel_size .............................. 8
+  data_path ....................................... ['/apex/DeepSpeed/Megatron-DeepSpeed/dataset/BookCorpusDataset_text_document']
+  data_per_class_fraction ......................... 1.0
+  data_sharding ................................... True
+  dataloader_type ................................. single
+  DDP_impl ........................................ local
+  decoder_num_layers .............................. None
+  decoder_seq_length .............................. None
+  deepscale ....................................... False
+  deepscale_config ................................ None
+  deepspeed ....................................... True
+  deepspeed_activation_checkpointing .............. True
+  deepspeed_config ................................ /apex/DeepSpeed/Megatron-DeepSpeed/scripts/zero3_comm.json
+  deepspeed_mpi ................................... False
+  dino_bottleneck_size ............................ 256
+  dino_freeze_last_layer .......................... 1
+  dino_head_hidden_size ........................... 2048
+  dino_local_crops_number ......................... 10
+  dino_local_img_size ............................. 96
+  dino_norm_last_layer ............................ False
+  dino_teacher_temp ............................... 0.07
+  dino_warmup_teacher_temp ........................ 0.04
+  dino_warmup_teacher_temp_epochs ................. 30
+  distribute_checkpointed_activations ............. False
+  distribute_saved_activations .................... False
+  distributed_backend ............................. nccl
+  distributed_timeout_minutes ..................... 10
+  ds_inference .................................... False
+  ds_pipeline_enabled ............................. False
+  embedding_path .................................. None
+  embedding_weights_in_fp32 ....................... False
+  empty_unused_memory_level ....................... 0
+  enable_expert_tensor_parallelism ................ False
+  encoder_num_layers .............................. 50
+  encoder_seq_length .............................. 1024
+  end_weight_decay ................................ 0.1
+  eod_mask_loss ................................... False
+  eval_interval ................................... 1000
+  eval_iters ...................................... 0
+  evidence_data_path .............................. None
+  exit_duration_in_mins ........................... None
+  exit_interval ................................... 5000
+  exit_on_missing_checkpoint ...................... False
+  exit_signal_handler ............................. False
+  expert_interval ................................. 2
+  ffn_hidden_size ................................. 16384
+  finetune ........................................ False
+  fp16 ............................................ True
+  fp16_lm_cross_entropy ........................... False
+  fp32_residual_connection ........................ False
+  fp8_amax_compute_algo ........................... most_recent
+  fp8_amax_history_len ............................ 1
+  fp8_e4m3 ........................................ False
+  fp8_hybrid ...................................... False
+  fp8_interval .................................... 1
+  fp8_margin ...................................... 0
+  fp8_wgrad ....................................... True
+  global_batch_size ............................... 64
+  gradient_accumulation_fusion .................... True
+  head_lr_mult .................................... 1.0
+  hidden_dropout .................................. 0.1
+  hidden_size ..................................... 4096
+  hidden_size_teacher ............................. None
+  hysteresis ...................................... 2
+  ict_head_size ................................... None
+  ict_load ........................................ None
+  img_h ........................................... 224
+  img_w ........................................... 224
+  indexer_batch_size .............................. 128
+  indexer_log_interval ............................ 1000
+  inference ....................................... False
+  inference_batch_times_seqlen_threshold .......... 512
+  init_method_std ................................. 0.006
+  init_method_xavier_uniform ...................... False
+  initial_loss_scale .............................. 4294967296
+  iter_per_epoch .................................. 1250
+  kd .............................................. False
+  kd_alpha_ce ..................................... 1
+  kd_beta_ce ...................................... 1
+  kd_temp ......................................... 1.0
+  kv_channels ..................................... 256
+  layernorm_epsilon ............................... 1e-05
+  lazy_mpu_init ................................... None
+  load ............................................ None
+  load_teacher .................................... None
+  local_rank ...................................... 0
+  log_batch_size_to_tensorboard ................... False
+  log_interval .................................... 1
+  log_learning_rate_to_tensorboard ................ True
+  log_loss_scale_to_tensorboard ................... True
+  log_memory_to_tensorboard ....................... False
+  log_num_zeros_in_grad ........................... False
+  log_optimizer_states_to_tensorboard ............. False
+  log_params_norm ................................. False
+  log_timers_to_tensorboard ....................... False
+  log_validation_ppl_to_tensorboard ............... False
+  log_world_size_to_tensorboard ................... False
+  loss_scale ...................................... 12.0
+  loss_scale_window ............................... 1000
+  lr .............................................. 6e-05
+  lr_decay_iters .................................. None
+  lr_decay_samples ................................ None
+  lr_decay_style .................................. cosine
+  lr_decay_tokens ................................. None
+  lr_warmup_fraction .............................. None
+  lr_warmup_iters ................................. 0
+  lr_warmup_samples ............................... 0
+  lr_warmup_tokens ................................ None
+  make_vocab_size_divisible_by .................... 128
+  mask_factor ..................................... 1.0
+  mask_prob ....................................... 0.15
+  mask_type ....................................... random
+  masked_softmax_fusion ........................... True
+  max_position_embeddings ......................... 1024
+  max_tokens_to_oom ............................... 12000
+  memory_centric_tiled_linear ..................... False
+  merge_file ...................................... /apex/DeepSpeed/tests/unit/gpt2-merges.txt
+  micro_batch_size ................................ 8
+  min_loss_scale .................................. 1.0
+  min_lr .......................................... 6e-06
+  mlp_type ........................................ standard
+  mmap_warmup ..................................... False
+  moe_eval_capacity_factor ........................ 1.0
+  moe_expert_parallel_size ........................ 1
+  moe_loss_coeff .................................. 0.1
+  moe_min_capacity ................................ 4
+  moe_token_dropping .............................. True
+  moe_train_capacity_factor ....................... 1.0
+  mos ............................................. False
+  no_load_lr_state ................................ False
+  no_load_optim ................................... None
+  no_load_rng ..................................... None
+  no_persist_layer_norm ........................... False
+  no_pipeline_parallel ............................ True
+  no_save_optim ................................... None
+  no_save_rng ..................................... None
+  normalization ................................... layernorm
+  num_attention_heads ............................. 16
+  num_attention_heads_teacher ..................... None
+  num_channels .................................... 3
+  num_classes ..................................... 1000
+  num_experts ..................................... [1]
+  num_experts_switch .............................. None
+  num_experts_teacher ............................. [1]
+  num_key_value_heads ............................. 16
+  num_layers ...................................... 50
+  num_layers_per_virtual_pipeline_stage ........... None
+  num_layers_teacher .............................. None
+  num_workers ..................................... 2
+  onnx_safe ....................................... None
+  openai_gelu ..................................... False
+  optimizer ....................................... adam
+  output_bert_embeddings .......................... False
+  overlap_p2p_comm ................................ False
+  override_opt_param_scheduler .................... False
+  params_dtype .................................... torch.float16
+  partition_activations ........................... True
+  patch_dim ....................................... 16
+  perform_initialization .......................... True
+  pipeline_model_parallel_size .................... 1
+  pipeline_model_parallel_split_rank .............. None
+  profile_backward ................................ False
+  query_in_block_prob ............................. 0.1
+  rampup_batch_size ............................... None
+  random_ltd ...................................... False
+  rank ............................................ 0
+  recompute_granularity ........................... None
+  recompute_method ................................ None
+  recompute_num_layers ............................ 1
+  remote_device ................................... none
+  reset_attention_mask ............................ False
+  reset_iteration ................................. False
+  reset_position_ids .............................. False
+  retriever_report_topk_accuracies ................ []
+  retriever_score_scaling ......................... False
+  retriever_seq_length ............................ 256
+  retro_add_retriever ............................. False
+  retro_cyclic_train_iters ........................ None
+  retro_encoder_attention_dropout ................. 0.1
+  retro_encoder_hidden_dropout .................... 0.1
+  retro_encoder_layers ............................ 2
+  retro_num_neighbors ............................. 2
+  retro_num_retrieved_chunks ...................... 2
+  retro_return_doc_ids ............................ False
+  retro_workdir ................................... None
+  return_data_index ............................... False
+  rotary_percent .................................. 1.0
+  sample_rate ..................................... 1.0
+  save ............................................ None
+  save_interval ................................... 1000
+  scatter_gather_tensors_in_pipeline .............. True
+  scattered_embeddings ............................ False
+  seed ............................................ 1234
+  seq_length ...................................... 1024
+  sequence_parallel ............................... False
+  sgd_momentum .................................... 0.9
+  short_seq_prob .................................. 0.1
+  skip_train ...................................... False
+  split ........................................... 98,2,0
+  split_transformers .............................. False
+  squared_relu .................................... False
+  standalone_embedding_stage ...................... False
+  start_weight_decay .............................. 0.1
+  swiglu .......................................... False
+  swin_backbone_type .............................. tiny
+  synchronize_each_layer .......................... True
+  tensor_model_parallel_size ...................... 1
+  tensorboard_dir ................................. ./log/ds_z3_nl50_hs4096_gb64_mb8
+  tensorboard_log_interval ........................ 1
+  tensorboard_queue_size .......................... 1000
+  test_data_path .................................. None
+  tile_factor ..................................... 1
+  timing_log_level ................................ 0
+  timing_log_option ............................... minmax
+  titles_data_path ................................ None
+  tokenizer_model ................................. None
+  tokenizer_type .................................. GPT2BPETokenizer
+  topk ............................................ 1
+  train_data_exact_num_epochs ..................... None
+  train_data_path ................................. None
+  train_desc_path ................................. None
+  train_doc_idx_path .............................. None
+  train_idx_path .................................. None
+  train_iters ..................................... 2
+  train_sample_idx_path ........................... None
+  train_samples ................................... None
+  train_shuffle_idx_path .......................... None
+  train_tokens .................................... None
+  transformer_impl ................................ local
+  transformer_pipeline_model_parallel_size ........ 1
+  untie_embeddings_and_output_weights ............. False
+  use_checkpoint_args ............................. False
+  use_checkpoint_opt_param_scheduler .............. False
+  use_contiguous_buffers_in_local_ddp ............. True
+  use_cpu_initialization .......................... None
+  use_distributed_optimizer ....................... False
+  use_flash_attn .................................. False
+  use_one_sent_docs ............................... False
+  use_pin_memory .................................. False
+  use_ring_exchange_p2p ........................... False
+  use_rotary_position_embeddings .................. False
+  use_tutel ....................................... False
+  valid_data_path ................................. None
+  variable_seq_lengths ............................ False
+  virtual_pipeline_model_parallel_size ............ None
+  vision_backbone_type ............................ vit
+  vision_pretraining .............................. False
+  vision_pretraining_type ......................... classify
+  vocab_extra_ids ................................. 0
+  vocab_file ...................................... /apex/DeepSpeed/tests/unit/gpt2-vocab.json
+  vocab_size ...................................... None
+  weight_decay .................................... 0.1
+  weight_decay_incr_style ......................... constant
+  world_size ...................................... 8
+  zero_allgather_bucket_size ...................... 0.0
+  zero_contigious_gradients ....................... False
+  zero_reduce_bucket_size ......................... 0.0
+  zero_reduce_scatter ............................. False
+  zero_stage ...................................... 3
+-------------------- end of arguments ---------------------
+setting number of micro-batches to constant 1
+> building GPT2BPETokenizer tokenizer ...
+[2023-08-18 11:38:41,376] [WARNING] [comm.py:152:init_deepspeed_backend] NCCL backend in DeepSpeed not yet implemented
+[2023-08-18 11:38:41,376] [INFO] [comm.py:616:init_distributed] cdb=None
+**** Git info for Megatron: git_hash=c2b0736 git_branch=main ****
+**** Git info for Megatron: git_hash=c2b0736 git_branch=main ****
+ > padded vocab (size: 50256) with 48 dummy tokens (new size: 50304)
+> initializing torch distributed ...
+[2023-08-18 11:38:41,399] [WARNING] [comm.py:152:init_deepspeed_backend] NCCL backend in DeepSpeed not yet implemented
+[2023-08-18 11:38:41,399] [INFO] [comm.py:616:init_distributed] cdb=None
+[2023-08-18 11:38:41,399] [INFO] [comm.py:643:init_distributed] Initializing TorchBackend in DeepSpeed with backend nccl
+**** Git info for Megatron: git_hash=c2b0736 git_branch=main ****
+[2023-08-18 11:38:41,442] [WARNING] [comm.py:152:init_deepspeed_backend] NCCL backend in DeepSpeed not yet implemented
+[2023-08-18 11:38:41,442] [INFO] [comm.py:616:init_distributed] cdb=None
+WARNING: TensorBoard writing requested but is not available (are you using PyTorch 1.1.0 or later?), no TensorBoard logs will be written.
+[2023-08-18 11:38:41,457] [WARNING] [comm.py:152:init_deepspeed_backend] NCCL backend in DeepSpeed not yet implemented
+[2023-08-18 11:38:41,458] [INFO] [comm.py:616:init_distributed] cdb=None
+[2023-08-18 11:38:41,463] [WARNING] [comm.py:152:init_deepspeed_backend] NCCL backend in DeepSpeed not yet implemented
+[2023-08-18 11:38:41,463] [INFO] [comm.py:616:init_distributed] cdb=None
+> initialized tensor model parallel with size 1
+> initialized pipeline model parallel with size 1
+> setting random seeds to 1234 ...
+> initializing model parallel cuda seeds on global rank 0, model parallel rank 0, and data parallel rank 0 with model parallel seed: 3952 and data parallel seed: 1234
+> compiling dataset index builder ...
+make: Entering directory '/apex/DeepSpeed/Megatron-DeepSpeed/megatron/data'
+make: Nothing to be done for 'default'.
+make: Leaving directory '/apex/DeepSpeed/Megatron-DeepSpeed/megatron/data'
+>>> done with dataset index builder. Compilation time: 0.697 seconds
+> compiling and loading fused kernels ...
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+NCCL version 2.14.3+cuda11.7
+
+449920431e15:564847:566317 [0] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564847:566317 [0] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_0
+
+449920431e15:564869:566318 [7] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564869:566318 [7] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_0
+
+449920431e15:564857:566319 [4] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564857:566319 [4] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_0
+
+449920431e15:564848:566320 [1] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564848:566320 [1] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_0
+
+449920431e15:564849:566323 [2] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564853:566322 [3] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564865:566321 [6] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564861:566324 [5] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564849:566323 [2] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_0
+
+449920431e15:564853:566322 [3] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_0
+
+449920431e15:564865:566321 [6] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_0
+
+449920431e15:564861:566324 [5] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_0
+
+449920431e15:564847:566317 [0] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564847:566317 [0] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_1
+
+449920431e15:564869:566318 [7] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564869:566318 [7] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_1
+
+449920431e15:564857:566319 [4] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564857:566319 [4] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_1
+
+449920431e15:564848:566320 [1] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564848:566320 [1] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_1
+
+449920431e15:564849:566323 [2] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564853:566322 [3] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564849:566323 [2] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_1
+
+449920431e15:564853:566322 [3] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_1
+
+449920431e15:564865:566321 [6] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564865:566321 [6] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_1
+
+449920431e15:564861:566324 [5] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564861:566324 [5] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_1
+
+449920431e15:564847:566317 [0] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564847:566317 [0] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_2
+
+449920431e15:564869:566318 [7] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564869:566318 [7] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_2
+
+449920431e15:564857:566319 [4] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564857:566319 [4] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_2
+
+449920431e15:564848:566320 [1] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564848:566320 [1] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_2
+
+449920431e15:564853:566322 [3] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564853:566322 [3] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_2
+
+449920431e15:564849:566323 [2] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564849:566323 [2] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_2
+
+449920431e15:564865:566321 [6] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564865:566321 [6] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_2
+
+449920431e15:564861:566324 [5] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564861:566324 [5] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_2
+
+449920431e15:564847:566317 [0] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564847:566317 [0] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_3
+
+449920431e15:564869:566318 [7] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564869:566318 [7] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_3
+
+449920431e15:564857:566319 [4] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564857:566319 [4] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_3
+
+449920431e15:564848:566320 [1] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564848:566320 [1] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_3
+
+449920431e15:564853:566322 [3] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564853:566322 [3] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_3
+
+449920431e15:564849:566323 [2] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564849:566323 [2] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_3
+
+449920431e15:564865:566321 [6] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564865:566321 [6] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_3
+
+449920431e15:564861:566324 [5] misc/ibvwrap.cc:222 NCCL WARN Call to ibv_open_device failed
+
+449920431e15:564861:566324 [5] transport/net_ib.cc:181 NCCL WARN NET/IB : Unable to open device mlx5_3
+>>> done with compiling and loading fused kernels. Compilation time: 30.120 seconds
+time to initialize megatron (seconds): 34.002
+[after megatron is initialized] datetime: 2023-08-18 11:39:14 
+building GPT model ...
+[2023-08-18 11:39:14,469] [INFO] [utils.py:785:see_memory_usage] Before Building Model
+[2023-08-18 11:39:14,470] [INFO] [utils.py:786:see_memory_usage] MA 0.0 GB         Max_MA 4.25 GB         CA 0.0 GB         Max_CA 4 GB 
+[2023-08-18 11:39:14,470] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 40.06 GB, percent = 4.0%
+[2023-08-18 11:39:14,989] [INFO] [utils.py:30:print_object] AsyncPartitionedParameterSwapper:
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   aio_config ................... {'block_size': 1048576, 'queue_depth': 8, 'thread_count': 1, 'single_submit': False, 'overlap_events': True}
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   aio_handle ................... <class 'deepspeed.ops.aio.async_io_op.aio_handle'>
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   aligned_bytes ................ 1024
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   aligned_elements_per_buffer .. 100000256
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   available_buffer_ids ......... [0, 1, 2, 3, 4]
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   available_numel .............. 0
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   available_params ............. set()
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   dtype ........................ torch.float16
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   elements_per_buffer .......... 100,000,000
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   id_to_path ................... {}
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   inflight_numel ............... 0
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   inflight_params .............. []
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   inflight_swap_in_buffers ..... []
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   invalid_buffer ............... 1.0
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   min_aio_bytes ................ 1048576
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   numel_alignment .............. 512
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   param_buffer_count ........... 5
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   param_id_to_buffer_id ........ {}
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   param_id_to_numel ............ {}
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   param_id_to_swap_buffer ...... {}
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   partitioned_swap_buffer ...... None
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   partitioned_swap_pool ........ None
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   pending_reads ................ 0
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   pending_writes ............... 0
+[2023-08-18 11:39:14,990] [INFO] [utils.py:34:print_object]   reserved_buffer_ids .......... []
+[2023-08-18 11:39:14,991] [INFO] [utils.py:34:print_object]   swap_config .................. device='nvme' nvme_path=PosixPath('dev/nvme0') buffer_count=5 buffer_size=100,000,000 max_in_cpu=1,000,000,000 pin_memory=True
+[2023-08-18 11:39:14,991] [INFO] [utils.py:34:print_object]   swap_element_size ............ 2
+[2023-08-18 11:39:14,991] [INFO] [utils.py:34:print_object]   swap_folder .................. dev/nvme0/zero_stage_3/float16params/rank0
+[2023-08-18 11:39:14,991] [INFO] [utils.py:34:print_object]   swap_out_params .............. []
+[2023-08-18 11:40:03,552] [INFO] [partition_parameters.py:326:__exit__] finished initializing model with 10.28B parameters
+[2023-08-18 11:40:03,608] [INFO] [utils.py:785:see_memory_usage] After Building Model
+[2023-08-18 11:40:03,609] [INFO] [utils.py:786:see_memory_usage] MA 0.0 GB         Max_MA 0.38 GB         CA 0.39 GB         Max_CA 0 GB 
+[2023-08-18 11:40:03,609] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 47.59 GB, percent = 4.7%
+ > number of parameters on (tensor, pipeline) model parallel rank (0, 0): 10279239680
+> learning rate decay style: cosine
+DeepSpeed is enabled.
+[2023-08-18 11:40:03,615] [INFO] [logging.py:96:log_dist] [Rank 0] DeepSpeed info: version=0.10.0+f5c834a6, git-hash=f5c834a6, git-branch=HEAD
+[2023-08-18 11:40:03,635] [INFO] [logging.py:96:log_dist] [Rank 0] DeepSpeed Flops Profiler Enabled: False
+[2023-08-18 11:40:03,636] [INFO] [logging.py:96:log_dist] [Rank 0] Removing param_group that has no 'params' in the client Optimizer
+[2023-08-18 11:40:03,636] [INFO] [logging.py:96:log_dist] [Rank 0] Using client Optimizer as basic optimizer
+[2023-08-18 11:40:03,710] [INFO] [logging.py:96:log_dist] [Rank 0] DeepSpeed Basic Optimizer = FusedAdam
+[2023-08-18 11:40:03,710] [INFO] [utils.py:54:is_zero_supported_optimizer] Checking ZeRO support for optimizer=FusedAdam type=<class 'apex.optimizers.fused_adam.FusedAdam'>
+[2023-08-18 11:40:03,710] [INFO] [logging.py:96:log_dist] [Rank 0] Creating fp16 ZeRO stage 3 optimizer, MiCS is enabled False, Hierarchical params gather False
+[2023-08-18 11:40:03,710] [INFO] [logging.py:96:log_dist] [Rank 0] Creating torch.float16 ZeRO stage 3 optimizer
+[2023-08-18 11:40:03,749] [INFO] [utils.py:785:see_memory_usage] Stage 3 initialize beginning
+[2023-08-18 11:40:03,750] [INFO] [utils.py:786:see_memory_usage] MA 0.0 GB         Max_MA 0.0 GB         CA 0.39 GB         Max_CA 0 GB 
+[2023-08-18 11:40:03,750] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 47.6 GB, percent = 4.7%
+[2023-08-18 11:40:03,752] [INFO] [stage3.py:117:__init__] Reduce bucket size 500,000,000
+[2023-08-18 11:40:03,752] [INFO] [stage3.py:118:__init__] Prefetch bucket size 50,000,000
+[2023-08-18 11:40:03,786] [INFO] [utils.py:785:see_memory_usage] DeepSpeedZeRoOffload initialize [begin]
+[2023-08-18 11:40:03,787] [INFO] [utils.py:786:see_memory_usage] MA 0.0 GB         Max_MA 0.0 GB         CA 0.39 GB         Max_CA 0 GB 
+[2023-08-18 11:40:03,787] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 47.6 GB, percent = 4.7%
+Parameter Offload: Total persistent parameters: 2670592 in 402 params
+[2023-08-18 11:40:03,844] [INFO] [utils.py:785:see_memory_usage] DeepSpeedZeRoOffload initialize [end]
+[2023-08-18 11:40:03,845] [INFO] [utils.py:786:see_memory_usage] MA 0.0 GB         Max_MA 0.0 GB         CA 0.39 GB         Max_CA 0 GB 
+[2023-08-18 11:40:03,845] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 47.6 GB, percent = 4.7%
+[2023-08-18 11:40:03,879] [INFO] [utils.py:785:see_memory_usage] Before creating fp16 partitions
+[2023-08-18 11:40:03,880] [INFO] [utils.py:786:see_memory_usage] MA 0.0 GB         Max_MA 0.0 GB         CA 0.39 GB         Max_CA 0 GB 
+[2023-08-18 11:40:03,880] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 47.6 GB, percent = 4.7%
+[2023-08-18 11:40:14,723] [INFO] [utils.py:785:see_memory_usage] After creating fp16 partitions: 2
+[2023-08-18 11:40:14,724] [INFO] [utils.py:786:see_memory_usage] MA 0.0 GB         Max_MA 0.0 GB         CA 0.39 GB         Max_CA 0 GB 
+[2023-08-18 11:40:14,724] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 212.81 GB, percent = 21.1%
+[2023-08-18 11:40:14,760] [INFO] [utils.py:785:see_memory_usage] Before creating fp32 partitions
+[2023-08-18 11:40:14,761] [INFO] [utils.py:786:see_memory_usage] MA 0.0 GB         Max_MA 0.0 GB         CA 0.39 GB         Max_CA 0 GB 
+[2023-08-18 11:40:14,761] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 209.76 GB, percent = 20.8%
+[2023-08-18 11:40:33,409] [INFO] [utils.py:785:see_memory_usage] After creating fp32 partitions
+[2023-08-18 11:40:33,410] [INFO] [utils.py:786:see_memory_usage] MA 4.79 GB         Max_MA 4.79 GB         CA 5.18 GB         Max_CA 5 GB 
+[2023-08-18 11:40:33,410] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 195.77 GB, percent = 19.4%
+[2023-08-18 11:40:33,495] [INFO] [utils.py:785:see_memory_usage] Before initializing optimizer states
+[2023-08-18 11:40:33,496] [INFO] [utils.py:786:see_memory_usage] MA 4.79 GB         Max_MA 4.79 GB         CA 5.18 GB         Max_CA 5 GB 
+[2023-08-18 11:40:33,496] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 195.74 GB, percent = 19.4%
+[2023-08-18 11:41:29,900] [INFO] [logging.py:96:log_dist] [Rank 0] rank=0 time (ms) | init_optimizer_state: 56374.24
+[2023-08-18 11:41:29,958] [INFO] [utils.py:785:see_memory_usage] After initializing optimizer states
+[2023-08-18 11:41:29,959] [INFO] [utils.py:786:see_memory_usage] MA 14.36 GB         Max_MA 18.12 GB         CA 18.51 GB         Max_CA 19 GB 
+[2023-08-18 11:41:29,959] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 194.98 GB, percent = 19.4%
+[2023-08-18 11:41:30,086] [INFO] [stage3.py:424:_setup_for_real_optimizer] optimizer state initialized
+[2023-08-18 11:41:49,442] [INFO] [utils.py:785:see_memory_usage] After initializing ZeRO optimizer
+[2023-08-18 11:41:49,442] [INFO] [utils.py:786:see_memory_usage] MA 17.69 GB         Max_MA 18.46 GB         CA 18.89 GB         Max_CA 19 GB 
+[2023-08-18 11:41:49,443] [INFO] [utils.py:793:see_memory_usage] CPU Virtual Memory:  used = 194.98 GB, percent = 19.4%
+[2023-08-18 11:41:49,443] [INFO] [logging.py:96:log_dist] [Rank 0] DeepSpeed Final Optimizer = FusedAdam
+[2023-08-18 11:41:49,443] [INFO] [logging.py:96:log_dist] [Rank 0] DeepSpeed using client LR scheduler
+[2023-08-18 11:41:49,443] [INFO] [logging.py:96:log_dist] [Rank 0] DeepSpeed LR Scheduler = <megatron.optimizer_param_scheduler.OptimizerParamScheduler object at 0x7f55f082b430>
+[2023-08-18 11:41:49,443] [INFO] [logging.py:96:log_dist] [Rank 0] step=0, skipped=0, lr=[5.9999999999999995e-05], mom=[(0.9, 0.95)]
+[2023-08-18 11:41:49,444] [INFO] [config.py:960:print] DeepSpeedEngine configuration:
+[2023-08-18 11:41:49,444] [INFO] [config.py:964:print]   activation_checkpointing_config  {
+    "partition_activations": true, 
+    "contiguous_memory_optimization": true, 
+    "cpu_checkpointing": false, 
+    "number_checkpoints": null, 
+    "synchronize_checkpoint_boundary": false, 
+    "profile": false
+}
+[2023-08-18 11:41:49,444] [INFO] [config.py:964:print]   aio_config ................... {'block_size': 1048576, 'queue_depth': 8, 'thread_count': 1, 'single_submit': False, 'overlap_events': True}
+[2023-08-18 11:41:49,444] [INFO] [config.py:964:print]   amp_enabled .................. False
+[2023-08-18 11:41:49,444] [INFO] [config.py:964:print]   amp_params ................... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   autotuning_config ............ {
+    "enabled": false, 
+    "start_step": null, 
+    "end_step": null, 
+    "metric_path": null, 
+    "arg_mappings": null, 
+    "metric": "throughput", 
+    "model_info": null, 
+    "results_dir": "autotuning_results", 
+    "exps_dir": "autotuning_exps", 
+    "overwrite": true, 
+    "fast": true, 
+    "start_profile_step": 3, 
+    "end_profile_step": 5, 
+    "tuner_type": "gridsearch", 
+    "tuner_early_stopping": 5, 
+    "tuner_num_trials": 50, 
+    "model_info_path": null, 
+    "mp_size": 1, 
+    "max_train_batch_size": null, 
+    "min_train_batch_size": 1, 
+    "max_train_micro_batch_size_per_gpu": 1.024000e+03, 
+    "min_train_micro_batch_size_per_gpu": 1, 
+    "num_tuning_micro_batch_sizes": 3
+}
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   bfloat16_enabled ............. False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   checkpoint_parallel_write_pipeline  False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   checkpoint_tag_validation_enabled  True
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   checkpoint_tag_validation_fail  False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   comms_config ................. <deepspeed.comm.config.DeepSpeedCommsConfig object at 0x7f55f082b9d0>
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   communication_data_type ...... None
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   compression_config ........... {'weight_quantization': {'shared_parameters': {'enabled': False, 'quantizer_kernel': False, 'schedule_offset': 0, 'quantize_groups': 1, 'quantize_verbose': False, 'quantization_type': 'symmetric', 'quantize_weight_in_forward': False, 'rounding': 'nearest', 'fp16_mixed_quantize': False, 'quantize_change_ratio': 0.001}, 'different_groups': {}}, 'activation_quantization': {'shared_parameters': {'enabled': False, 'quantization_type': 'symmetric', 'range_calibration': 'dynamic', 'schedule_offset': 1000}, 'different_groups': {}}, 'sparse_pruning': {'shared_parameters': {'enabled': False, 'method': 'l1', 'schedule_offset': 1000}, 'different_groups': {}}, 'row_pruning': {'shared_parameters': {'enabled': False, 'method': 'l1', 'schedule_offset': 1000}, 'different_groups': {}}, 'head_pruning': {'shared_parameters': {'enabled': False, 'method': 'topk', 'schedule_offset': 1000}, 'different_groups': {}}, 'channel_pruning': {'shared_parameters': {'enabled': False, 'method': 'l1', 'schedule_offset': 1000}, 'different_groups': {}}, 'layer_reduction': {'enabled': False}}
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   curriculum_enabled_legacy .... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   curriculum_params_legacy ..... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   data_efficiency_config ....... {'enabled': False, 'seed': 1234, 'data_sampling': {'enabled': False, 'num_epochs': 1000, 'num_workers': 0, 'curriculum_learning': {'enabled': False}}, 'data_routing': {'enabled': False, 'random_ltd': {'enabled': False, 'layer_token_lr_schedule': {'enabled': False}}}}
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   data_efficiency_enabled ...... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   dataloader_drop_last ......... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   disable_allgather ............ False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   dump_state ................... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   dynamic_loss_scale_args ...... None
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   eigenvalue_enabled ........... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   eigenvalue_gas_boundary_resolution  1
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   eigenvalue_layer_name ........ bert.encoder.layer
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   eigenvalue_layer_num ......... 0
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   eigenvalue_max_iter .......... 100
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   eigenvalue_stability ......... 1e-06
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   eigenvalue_tol ............... 0.01
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   eigenvalue_verbose ........... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   elasticity_enabled ........... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   flops_profiler_config ........ {
+    "enabled": false, 
+    "recompute_fwd_factor": 0.0, 
+    "profile_step": 1, 
+    "module_depth": -1, 
+    "top_modules": 1, 
+    "detailed": true, 
+    "output_file": null
+}
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   fp16_auto_cast ............... False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   fp16_enabled ................. True
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   fp16_master_weights_and_gradients  False
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   global_rank .................. 0
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   grad_accum_dtype ............. None
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   gradient_accumulation_steps .. 1
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   gradient_clipping ............ 0.0
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   gradient_predivide_factor .... 1.0
+[2023-08-18 11:41:49,445] [INFO] [config.py:964:print]   hybrid_engine ................ enabled=False max_out_tokens=512 inference_tp_size=1 release_inference_cache=False pin_parameters=True tp_gather_partition_size=8
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   initial_dynamic_scale ........ 65536
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   load_universal_checkpoint .... False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   loss_scale ................... 0
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   memory_breakdown ............. False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   mics_hierarchial_params_gather  False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   mics_shard_size .............. -1
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   monitor_config ............... tensorboard=TensorBoardConfig(enabled=False, output_path='', job_name='DeepSpeedJobName') wandb=WandbConfig(enabled=False, group=None, team=None, project='deepspeed') csv_monitor=CSVConfig(enabled=False, output_path='', job_name='DeepSpeedJobName') enabled=False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   nebula_config ................ {
+    "enabled": false, 
+    "persistent_storage_path": null, 
+    "persistent_time_interval": 100, 
+    "num_of_version_in_retention": 2, 
+    "enable_nebula_load": true, 
+    "load_path": null
+}
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   optimizer_legacy_fusion ...... False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   optimizer_name ............... None
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   optimizer_params ............. None
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   pipeline ..................... {'stages': 'auto', 'partition': 'best', 'seed_layers': False, 'activation_checkpoint_interval': 0}
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   pld_enabled .................. False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   pld_params ................... False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   prescale_gradients ........... False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   scheduler_name ............... None
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   scheduler_params ............. None
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   sparse_attention ............. None
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   sparse_gradients_enabled ..... False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   steps_per_print .............. 1
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   train_batch_size ............. 64
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   train_micro_batch_size_per_gpu  8
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   use_node_local_storage ....... False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   wall_clock_breakdown ......... True
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   world_size ................... 8
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   zero_allow_untested_optimizer  False
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   zero_config .................. stage=3 contiguous_gradients=True reduce_scatter=True reduce_bucket_size=500,000,000 allgather_partitions=True allgather_bucket_size=500,000,000 overlap_comm=True load_from_fp32_weights=True elastic_checkpoint=False offload_param=DeepSpeedZeroOffloadParamConfig(device='nvme', nvme_path=PosixPath('dev/nvme0'), buffer_count=5, buffer_size=100,000,000, max_in_cpu=1,000,000,000, pin_memory=True) offload_optimizer=None sub_group_size=1,000,000,000 cpu_offload_param=None cpu_offload_use_pin_memory=None cpu_offload=None prefetch_bucket_size=50,000,000 param_persistence_threshold=100,000 model_persistence_threshold=sys.maxsize max_live_parameters=1,000,000,000 max_reuse_distance=1,000,000,000 gather_16bit_weights_on_model_save=False stage3_gather_fp16_weights_on_model_save=False ignore_unused_parameters=True legacy_stage1=False round_robin_gradients=False zero_hpz_partition_size=1 zero_quantized_weights=False zero_quantized_gradients=False mics_shard_size=-1 mics_hierarchical_params_gather=False memory_efficient_linear=True
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   zero_enabled ................. True
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   zero_force_ds_cpu_optimizer .. True
+[2023-08-18 11:41:49,446] [INFO] [config.py:964:print]   zero_optimization_stage ...... 3
+[2023-08-18 11:41:49,446] [INFO] [config.py:950:print_user_config]   json = {
+    "train_batch_size": 64, 
+    "train_micro_batch_size_per_gpu": 8, 
+    "steps_per_print": 1, 
+    "zero_optimization": {
+        "stage": 3, 
+        "offload_param": {
+            "device": "nvme", 
+            "nvme_path": "dev/nvme0", 
+            "pin_memory": true
+        }, 
+        "overlap_comm": true
+    }, 
+    "activation_checkpointing": {
+        "partition_activations": true, 
+        "cpu_checkpointing": false, 
+        "contiguous_memory_optimization": true
+    }, 
+    "fp16": {
+        "enabled": true
+    }, 
+    "wall_clock_breakdown": true
+}
+[after model, optimizer, and learning rate scheduler are built] datetime: 2023-08-18 11:41:49 
+> building train, validation, and test datasets ...
+ > datasets target sizes (minimum size):
+    train:      128
+    validation: 0
+    test:       0
+> building train, validation, and test datasets for GPT ...
+Single data path provided for train, valid & test
+ > building dataset index ...
+    reading sizes...
+    reading pointers...
+    reading document index...
+    creating numpy buffer of mmap...
+    creating memory view of numpy buffer...
+ > finished creating indexed dataset in 0.000401 seconds
+    number of documents: 17868
+ > dataset split:
+    train:
+     document indices in [0, 17511) total of 17511 documents
+    validation:
+     document indices in [17511, 17868) total of 357 documents
+    test:
+     document indices in [17868, 17868) total of 0 documents
+NCCL version 2.14.3+cuda11.7
+NCCL version 2.14.3+cuda11.7
+NCCL version 2.14.3+cuda11.7
+NCCL version 2.14.3+cuda11.7
+NCCL version 2.14.3+cuda11.7
+NCCL version 2.14.3+cuda11.7
+NCCL version 2.14.3+cuda11.7
+ > loading doc-idx mapping from /apex/DeepSpeed/Megatron-DeepSpeed/dataset/index-cache/9964b81f6d93a6685d0e8e7fd401ac85_doc_idx.npy
+ > loading sample-idx mapping from /apex/DeepSpeed/Megatron-DeepSpeed/dataset/index-cache/9964b81f6d93a6685d0e8e7fd401ac85_sample_idx.npy
+ > loading shuffle-idx mapping from /apex/DeepSpeed/Megatron-DeepSpeed/dataset/index-cache/9964b81f6d93a6685d0e8e7fd401ac85_shuffle_idx.npy
+    loaded indexed file in 0.001 seconds
+    total number of samples: 1544006
+    total number of epochs: 1
+ > loading doc-idx mapping from /apex/DeepSpeed/Megatron-DeepSpeed/dataset/index-cache/93846f192f90243308f243758de7d906_doc_idx.npy
+ > loading sample-idx mapping from /apex/DeepSpeed/Megatron-DeepSpeed/dataset/index-cache/93846f192f90243308f243758de7d906_sample_idx.npy
+ > loading shuffle-idx mapping from /apex/DeepSpeed/Megatron-DeepSpeed/dataset/index-cache/93846f192f90243308f243758de7d906_shuffle_idx.npy
+    loaded indexed file in 0.001 seconds
+    total number of samples: 31426
+    total number of epochs: 1
+> finished creating GPT datasets ...
+[after dataloaders are built] datetime: 2023-08-18 11:41:50 
+done with setup ...
+training ...
+(min, max) time across ranks (ms):
+    model-and-optimizer-setup ......................: (154976.46, 155035.72)
+    train/valid/test-data-iterators-setup ..........: (596.30, 673.21)
+[before the start of training step] datetime: 2023-08-18 11:41:50 
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+self.host side all-gather
+here
+reset_step w/ 0 th
+[2023-08-18 11:42:52,334] [INFO] [loss_scaler.py:183:update_scale] [deepspeed] OVERFLOW! Rank 0 Skipping step. Attempted loss scale: 4294967296, reducing to 2147483648
+[2023-08-18 11:42:52,335] [INFO] [logging.py:96:log_dist] [Rank 0] step=1, skipped=1, lr=[5.9999999999999995e-05], mom=[(0.9, 0.95)]
+[2023-08-18 11:42:52,335] [INFO] [logging.py:96:log_dist] [Rank 0] rank=0 time (ms) | forward_microstep: 23144.40 | backward_microstep: 38837.71 | backward_inner_microstep: 38829.52 | backward_allreduce_microstep: 8.11 | step_microstep: 219.15
+[2023-08-18 11:42:52,335] [INFO] [logging.py:96:log_dist] [Rank 0] rank=0 time (ms) | forward: 23144.38 | backward: 38837.72 | backward_inner: 38829.53 | backward_allreduce: 8.11 | step: 219.15
+[Rank 0] (after 1 iterations) memory (MB) | allocated: 18367.2939453125 | max allocated: 26054.8486328125 | reserved: 34496.0 | max reserved: 34496.0
+ iteration        1/       2 | consumed samples:           64 | consumed tokens:        65536 | elapsed time per iteration (ms): 62211.5 | learning rate: 6.000E-05 | global batch size:    64 | lm loss: 1.083707E+01 | loss scale: 2147483648.0 | actual seqlen:  1024 | number of skipped iterations:   0 | number of nan iterations:   0 | samples per second: 1.029 | TFLOPs: 11.21 |
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+self.host side all-gather
+here
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+self.host side all-gather
+here
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+num_prefetching
+[2023-08-18 11:43:30,551] [INFO] [logging.py:96:log_dist] [Rank 0] forward_fetch_wait: count = 1208, numel = 2515928064
+[2023-08-18 11:43:30,551] [INFO] [logging.py:96:log_dist] [Rank 0] forward_fetch_submit: count = 1, numel = 25755648
+[2023-08-18 11:43:30,551] [INFO] [logging.py:96:log_dist] [Rank 0] forward_all_gather: count = 349, numel = 13567574016
+[2023-08-18 11:43:30,551] [INFO] [logging.py:96:log_dist] [Rank 0] backward_fetch_submit: count = 0, numel = 0
+[2023-08-18 11:43:30,552] [INFO] [logging.py:96:log_dist] [Rank 0] backward_all_gather: count = 148, numel = 6580862976
+[2023-08-18 11:43:30,552] [INFO] [logging.py:96:log_dist] [Rank 0] backward_fetch_wait: count = 758, numel = 524288
+[2023-08-18 11:43:30,552] [INFO] [logging.py:96:log_dist] [Rank 0] forward_prefetch_submit: count = 348, numel = 13361528832
+[2023-08-18 11:43:30,552] [INFO] [logging.py:96:log_dist] [Rank 0] backward_prefetch_wait: count = 148, numel = 6580862976
+[2023-08-18 11:43:30,689] [INFO] [logging.py:96:log_dist] [Rank 0] rank=0 time (ms) | forward_fetch_wait: 4112.69 | forward_fetch_submit: 36653.94 | forward_all_gather: 60912.24 | backward_fetch_submit: 16859.31 | backward_all_gather: 28434.30 | backward_fetch_wait: 962.19 | forward_prefetch_submit: 21659.99 | backward_prefetch_wait: 9060.00
+[2023-08-18 11:43:30,771] [INFO] [loss_scaler.py:183:update_scale] [deepspeed] OVERFLOW! Rank 0 Skipping step. Attempted loss scale: 2147483648, reducing to 1073741824
+[2023-08-18 11:43:30,772] [INFO] [logging.py:96:log_dist] [Rank 0] step=2, skipped=2, lr=[5.9999999999999995e-05], mom=[(0.9, 0.95)]
+[2023-08-18 11:43:30,772] [INFO] [logging.py:96:log_dist] [Rank 0] rank=0 time (ms) | forward_microstep: 19811.55 | backward_microstep: 18544.87 | backward_inner_microstep: 18508.98 | backward_allreduce_microstep: 35.81 | step_microstep: 46.74
+[2023-08-18 11:43:30,772] [INFO] [logging.py:96:log_dist] [Rank 0] rank=0 time (ms) | forward: 19811.54 | backward: 18544.88 | backward_inner: 18509.00 | backward_allreduce: 35.82 | step: 46.75
+ iteration        2/       2 | consumed samples:          128 | consumed tokens:       131072 | elapsed time per iteration (ms): 38432.8 | learning rate: 6.000E-05 | global batch size:    64 | loss scale: 1073741824.0 | actual seqlen:  1024 | number of skipped iterations:   0 | number of nan iterations:   0 | samples per second: 1.665 | TFLOPs: 18.14 |
+[after training is done] datetime: 2023-08-18 11:43:30 
+[2023-08-18 11:43:43,959] [INFO] [launch.py:347:main] Process 564853 exits successfully.
+[2023-08-18 11:43:43,959] [INFO] [launch.py:347:main] Process 564847 exits successfully.
+[2023-08-18 11:43:43,960] [INFO] [launch.py:347:main] Process 564869 exits successfully.
+[2023-08-18 11:43:43,960] [INFO] [launch.py:347:main] Process 564848 exits successfully.
+[2023-08-18 11:43:43,960] [INFO] [launch.py:347:main] Process 564861 exits successfully.
+[2023-08-18 11:43:43,961] [INFO] [launch.py:347:main] Process 564865 exits successfully.
+[2023-08-18 11:43:43,961] [INFO] [launch.py:347:main] Process 564857 exits successfully.
+[2023-08-18 11:43:43,961] [INFO] [launch.py:347:main] Process 564849 exits successfully.
+Generating '/tmp/nsys-report-1b93.qdstrm'
+
+[1/1] [0%                          ] report8.nsys-rep
+[1/1] [0%                          ] report8.nsys-rep
+[1/1] [5%                          ] report8.nsys-rep
+[1/1] [10%                         ] report8.nsys-rep
+[1/1] [9%                          ] report8.nsys-rep
+[1/1] [11%                         ] report8.nsys-rep
+[1/1] [13%                         ] report8.nsys-rep
+[1/1] [14%                         ] report8.nsys-rep
+[1/1] [====26%                     ] report8.nsys-rep
+[1/1] [=======39%                  ] report8.nsys-rep
+[1/1] [=======38%                  ] report8.nsys-rep
+[1/1] [=======37%                  ] report8.nsys-rep
+[1/1] [=======38%                  ] report8.nsys-rep
+[1/1] [=======37%                  ] report8.nsys-rep
+[1/1] [=======36%                  ] report8.nsys-rep
+[1/1] [=======37%                  ] report8.nsys-rep
+[1/1] [=======38%                  ] report8.nsys-rep
+[1/1] [======35%                   ] report8.nsys-rep
+[1/1] [======34%                   ] report8.nsys-rep
+[1/1] [======33%                   ] report8.nsys-rep
+[1/1] [======34%                   ] report8.nsys-rep
+[1/1] [======35%                   ] report8.nsys-rep
+[1/1] [======34%                   ] report8.nsys-rep
+[1/1] [======33%                   ] report8.nsys-rep
+[1/1] [=====32%                    ] report8.nsys-rep
+[1/1] [=====31%                    ] report8.nsys-rep
+[1/1] [=====30%                    ] report8.nsys-rep
+[1/1] [=====31%                    ] report8.nsys-rep
+[1/1] [=====30%                    ] report8.nsys-rep
+[1/1] [=====29%                    ] report8.nsys-rep
+[1/1] [=====30%                    ] report8.nsys-rep
+[1/1] [=====29%                    ] report8.nsys-rep
+[1/1] [====28%                     ] report8.nsys-rep
+[1/1] [====27%                     ] report8.nsys-rep
+[1/1] [====26%                     ] report8.nsys-rep
+[1/1] [====25%                     ] report8.nsys-rep
+[1/1] [===24%                      ] report8.nsys-rep
+[1/1] [===23%                      ] report8.nsys-rep
+[1/1] [===22%                      ] report8.nsys-rep
+[1/1] [===23%                      ] report8.nsys-rep
+[1/1] [===22%                      ] report8.nsys-rep
+[1/1] [===23%                      ] report8.nsys-rep
+[1/1] [===24%                      ] report8.nsys-rep
+[1/1] [=====29%                    ] report8.nsys-rep
+[1/1] [======35%                   ] report8.nsys-rep
+[1/1] [14%                         ] report8.nsys-rep
+[1/1] [=15%                        ] report8.nsys-rep
+[1/1] [9%                          ] report8.nsys-rep
+[1/1] [7%                          ] report8.nsys-rep
+[1/1] [8%                          ] report8.nsys-rep
+[1/1] [6%                          ] report8.nsys-rep
+[1/1] [5%                          ] report8.nsys-rep
+[1/1] [6%                          ] report8.nsys-rep
+[1/1] [5%                          ] report8.nsys-rep
+[1/1] [4%                          ] report8.nsys-rep
+[1/1] [3%                          ] report8.nsys-rep
+[1/1] [2%                          ] report8.nsys-rep
+[1/1] [3%                          ] report8.nsys-rep
+[1/1] [2%                          ] report8.nsys-rep
+[1/1] [3%                          ] report8.nsys-rep
+[1/1] [2%                          ] report8.nsys-rep
+[1/1] [3%                          ] report8.nsys-rep
+[1/1] [2%                          ] report8.nsys-rep
+[1/1] [3%                          ] report8.nsys-rep
+[1/1] [2%                          ] report8.nsys-rep
+[1/1] [1%                          ] report8.nsys-rep
+[1/1] [0%                          ] report8.nsys-rep
+[1/1] [3%                          ] report8.nsys-rep
+[1/1] [4%                          ] report8.nsys-rep
+[1/1] [5%                          ] report8.nsys-rep
+[1/1] [6%                          ] report8.nsys-rep
+[1/1] [7%                          ] report8.nsys-rep
+[1/1] [8%                          ] report8.nsys-rep
+[1/1] [9%                          ] report8.nsys-rep
+[1/1] [10%                         ] report8.nsys-rep
+[1/1] [11%                         ] report8.nsys-rep
+[1/1] [12%                         ] report8.nsys-rep
+[1/1] [13%                         ] report8.nsys-rep
+[1/1] [14%                         ] report8.nsys-rep
+[1/1] [=15%                        ] report8.nsys-rep
+[1/1] [=16%                        ] report8.nsys-rep
+[1/1] [=17%                        ] report8.nsys-rep
+[1/1] [==18%                       ] report8.nsys-rep
+[1/1] [==19%                       ] report8.nsys-rep
+[1/1] [==20%                       ] report8.nsys-rep
+[1/1] [==21%                       ] report8.nsys-rep
+[1/1] [===22%                      ] report8.nsys-rep
+[1/1] [===23%                      ] report8.nsys-rep
+[1/1] [===24%                      ] report8.nsys-rep
+[1/1] [====25%                     ] report8.nsys-rep
+[1/1] [====26%                     ] report8.nsys-rep
+[1/1] [====27%                     ] report8.nsys-rep
+[1/1] [====28%                     ] report8.nsys-rep
+[1/1] [=====29%                    ] report8.nsys-rep
+[1/1] [=====30%                    ] report8.nsys-rep
+[1/1] [=====31%                    ] report8.nsys-rep
+[1/1] [=====32%                    ] report8.nsys-rep
+[1/1] [======33%                   ] report8.nsys-rep
+[1/1] [======34%                   ] report8.nsys-rep
+[1/1] [======35%                   ] report8.nsys-rep
+[1/1] [=======36%                  ] report8.nsys-rep
+[1/1] [=======37%                  ] report8.nsys-rep
+[1/1] [=======38%                  ] report8.nsys-rep
+[1/1] [=======39%                  ] report8.nsys-rep
+[1/1] [========40%                 ] report8.nsys-rep
+[1/1] [========41%                 ] report8.nsys-rep
+[1/1] [========42%                 ] report8.nsys-rep
+[1/1] [=========43%                ] report8.nsys-rep
+[1/1] [=========44%                ] report8.nsys-rep
+[1/1] [=========45%                ] report8.nsys-rep
+[1/1] [=========46%                ] report8.nsys-rep
+[1/1] [==========47%               ] report8.nsys-rep
+[1/1] [==========48%               ] report8.nsys-rep
+[1/1] [==========49%               ] report8.nsys-rep
+[1/1] [========================100%] report8.nsys-rep
+[1/1] [========================100%] report8.nsys-rep
+Generated:
+    /apex/DeepSpeed/Megatron-DeepSpeed/report8.nsys-rep
