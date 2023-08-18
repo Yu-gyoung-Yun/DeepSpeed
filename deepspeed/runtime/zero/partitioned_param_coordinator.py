@@ -278,9 +278,9 @@ class PartitionedParameterCoordinator:
             # kick off all gather for params in the immediately required submodule
             #for param in params_to_fetch:
             #if logger.isEnabledFor(logging.DEBUG):
-            for param in params_to_fetch:
-                #debug_rank0(f"-fetch: {param.ds_summary()}")
-                print_rank_0(f"fetch_numel w/ {param.ds_summary()}", force=True)
+            #for param in params_to_fetch:
+            #    #debug_rank0(f"-fetch: {param.ds_summary()}")
+            #    print_rank_0(f"fetch_numel w/ {param.ds_summary()}", force=True)
             self.__all_gather_params(params_to_fetch, forward) # here
             self.__profiler.stop_event(event_name, fetch_numel)
 
@@ -292,7 +292,7 @@ class PartitionedParameterCoordinator:
             param.ds_active_sub_modules.add(current_submodule.id)
             #if logger.isEnabledFor(logging.DEBUG):
             #    debug_rank0(f"-wait: {param.ds_summary()}")
-            print_rank_0(f"-wait: {param.ds_summary()}", force=True)
+            #print_rank_0(f"-wait: {param.ds_summary()}", force=True)
             if param in self.__inflight_param_registry:
                 wait_numel += param.partition_numel()
                 with get_accelerator().stream(self.__allgather_stream):
@@ -443,8 +443,8 @@ class PartitionedParameterCoordinator:
                 self.__profiler.stop_event(event_name, all_gather_numel)
 
             for param in partitioned_params:
-                #if param.ds_status == ZeroParamStatus.AVAILABLE:
-                #    continue
+                if param.ds_status == ZeroParamStatus.AVAILABLE:
+                    continue
                 assert param.ds_status == ZeroParamStatus.INFLIGHT, param.ds_summary()
                 self.__inflight_param_registry[param] = handle
 
