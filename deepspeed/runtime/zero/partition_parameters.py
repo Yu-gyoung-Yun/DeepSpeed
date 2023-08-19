@@ -578,11 +578,12 @@ class AllGatherCoalescedHandle:
     def wait(self) -> None:
         if self.complete:
             return
-        ret = self.allgather_handle.wait
-        print_rank_0(f"ret: {ret}", force=True)
-        #instrument_w_nvtx(self.allgather_handle.wait)()
-        print_rank_0(f"self.allgather_handle: {self.allgather_handle.__dict__}", force=True)
-
+        #ret = self.allgather_handle.wait
+        #print_rank_0(f"ret: {ret}", force=True)
+        instrument_w_nvtx(self.allgather_handle.wait)()
+        #print_rank_0(f"self.allgather_handle: {dir(self.allgather_handle)}", force=True)
+        ''''__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '_source_rank', 'exception', 'get_future',\
+             'is_completed', 'is_success', 'result', 'source_rank', 'synchronize', 'wait']'''
         if self.quantization:
             instrument_w_nvtx(self.quantization.quant_handle.wait)()
             flat_tensor = self.quantization.backend.dequantize(
@@ -610,7 +611,7 @@ class AllGatherCoalescedHandle:
             param.data = instrument_w_nvtx(torch.cat)(partitions).view(param.ds_shape)
             param.ds_status = ZeroParamStatus.AVAILABLE
 
-            for part_to_copy in partitions:
+            for part_to_copy in partitions: # Ensures that the tensor memory is not reused for another tensor until all current work queued on stream are complete.
                 part_to_copy.record_stream(get_accelerator().current_stream())
 
             param_offset += ds_tensor_numel
@@ -629,16 +630,25 @@ def host_combined(params, use_secondary_tensor, forward, world_size, og_partitio
         for rank in range(world_size):
             param_start = rank * ds_tensor_numel
             if param_start < param.ds_numel:
+                # Create a custom color with RGB values (255, 0, 0) for red
+                #custom_color = (255, 0, 0)
+                #torch.cuda.nvtx.range_push(f"host_combine {param.ds_id}")
                 part_to_copy = og_partitions[rank].narrow(0, param_offset,
-                                                            min(param.ds_numel - param_start, ds_tensor_numel))
+                                                min(param.ds_numel - param_start, ds_tensor_numel)).pin_memory().to(get_accelerator().current_device_name(), non_blocking=True)
+                #torch.cuda.nvtx.range_pop()
+                #part_to_copy.to(get_accelerator().current_device_name())
+                #print(f"part_to_copy.backend: {part_to_copy.get_device()}")
                 partitions.append(part_to_copy)
         # Overlapping transfer if pinned memory
         #with torch.cuda.stream()
-        torch.cuda.nvtx.range_push(f"host_combin w/ {param.ds_id}")
+        torch.cuda.nvtx.range_push(f"partition.cat {param.ds_id}")
         with get_accelerator().stream(asyn_stream): # 여기서 serialize되는 듯. 같은 stream에 넣으니까
-            param.data = torch.cat(partitions).view(param.ds_shape).pin_memory().to(get_accelerator().current_device_name(), non_blocking =True)
-        # param.data를 쪼개서 지금처럼 보내되, 언제 넣을지를 
+            #param.data = torch.cat(partitions).view(param.ds_shape).pin_memory()
+            param.data = torch.cat(partitions).view(param.ds_shape)#.pin_memory()
         torch.cuda.nvtx.range_pop()
+        #torch.cuda.nvtx.range_push(f"host_combine {param.ds_id}")
+        #param.data = param.data.to(get_accelerator().current_device_name(), non_blocking =True)# param.data를 쪼개서 지금처럼 보내되, 언제 넣을지를 
+        #torch.cuda.nvtx.range_pop()
         param.ds_status = ZeroParamStatus.AVAILABLE
 
         #print(f"get_current_stream: {get_accelerator().current_stream()}")
@@ -969,6 +979,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         param.ds_status = ZeroParamStatus.AVAILABLE
 
         # Stores the shape of the original tensor
+        param.ds_size = param.size()
         param.ds_shape = param.shape
 
         # Stores the number of elements in the original parameter without padding
@@ -1190,8 +1201,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     flat_tensor = torch.empty(partition_sz * world_size,
                                         dtype=get_only_unique_item(p.dtype
                                                                     for p in params) if not quant else torch.int8,
-                                        device=get_accelerator().current_device_name(),
-                                        requires_grad=False)
+                                        #device=get_accelerator().current_device_name(),
+                                        requires_grad=False).pin_memory()
                     if not quant:
                         partitions: List[Parameter] = []
                         for i in range(world_size):
@@ -1204,8 +1215,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                                 out=partitions[rank_in_group])
                         else:
                             # all-gather가 이미 async stream안에 들어옴.
+                            # empty_torch = p.ds_tensor
                             instrument_w_nvtx(
-                                torch.cat)([p.ds_tensor.to(get_accelerator().current_device_name()) for p in params], # #p.ds_tensor가 이미 self.buffer(cpu.pin_memory())임
+                                torch.cat)([p.ds_tensor for p in params], # #p.ds_tensor가 이미 self.buffer(cpu.pin_memory())임
                                         out=partitions[rank_in_group])
                         #handle = False
                         #with get_accelerator().stream(self.__allgather_stream):
@@ -1248,6 +1260,188 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                             forward=forward,
                             quantization=quant_info,
                         )
+        @instrument_w_nvtx
+        def cpu_cat_params(params: Iterable[Parameter],
+                                 forward: bool,
+                                 safe_mode: bool = False) -> AllGatherCoalescedHandle:
+
+            # fetches from nvme if the partition is not available and in nvme
+            self._ensure_availability_of_partitioned_params(params)
+
+            quant = self.quantized_weights
+            if self.module is not None and self.module.training is False:
+                quant = False
+
+            if self.num_partitions == 1:
+                return _no_gather_coalesced(params)
+
+            for param in params:
+                if param.ds_status != ZeroParamStatus.NOT_AVAILABLE:
+                    raise RuntimeError(param.ds_summary())
+                param.ds_status = ZeroParamStatus.INFLIGHT
+
+            #use appropriate all gather process group
+            ds_process_group = self.ds_process_group
+            rank_in_group = self.rank
+            world_size = self.dp_world_size
+            use_secondary_tensor = False
+            if self.zero_param_process_group and not forward:
+                ds_process_group = self.zero_param_process_group  #intragroup
+                rank_in_group = self.rank_in_group
+                world_size = self.num_ranks_in_param_group
+
+            #pprint(dir(ds_process_group))
+            # ensure that each rank has params in same order. the allgather
+            # is done by flattening the parameter list into a single tensor that
+            # can be allgathered in a single call - this means that if each rank
+            # gives a list of the same parameters in a different order we will
+            # silently get incorrect parameter values, and have very difficult
+            # to debug correctness issues.
+            params = sorted(params, key=lambda p: p.ds_id)
+
+            if logger.isEnabledFor(logging.DEBUG):
+                debug_rank0(f"-allgather_coalesced: {[p.ds_id for p in params]}")
+
+            if safe_mode:
+                # ensure that same list (with same ordering) of parameters are
+                # being allgathered across all ranks, otherwise could mix
+                # data between tensors.
+                assert_ints_same_as_other_ranks([p.ds_id for p in params])
+                # ensure that tensors from each rank agree on the same ds_numel
+                # otherwise could mix data between tensors.
+                assert_ints_same_as_other_ranks([p.ds_tensor.ds_numel for p in params])
+
+            if len(params) == 1:
+                # have an opportunity to avoid some intermediate memory allocations
+                param, = params
+                buffer_size = math.ceil(param.ds_numel / world_size) * world_size
+                if not forward and param.ds_secondary_tensor is not None:
+                    buffer_size = param.ds_secondary_tensor.shape[0] * world_size  #make sure out is appropriately sized
+
+                param_buffer = torch.empty(
+                    buffer_size,
+                    dtype=param.dtype if not quant else torch.int8,
+                    device=get_accelerator().current_device_name(),
+                    requires_grad=False,
+                )
+                param_ds_tensor = param.ds_secondary_tensor if not forward and param.ds_secondary_tensor is not None else param.ds_tensor
+                if not quant:
+                    handles = _dist_allgather_fn(
+                        param_ds_tensor.to(get_accelerator().current_device_name()),
+                        param_buffer,
+                        ds_process_group,
+                    )
+                    param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape).to(param.device)
+                    return AllGatherHandle(handles, param)
+                else:
+                    quantized_param, scales = self.quantizer_module.quantize(param_ds_tensor)
+                    handle = _dist_allgather_fn(quantized_param.to(get_accelerator().current_device_name()),
+                                                param_buffer, ds_process_group)
+
+                    quant_scale_buffer = torch.empty(
+                        scales.numel() * world_size,
+                        dtype=torch.float32,
+                        device=get_accelerator().current_device_name(),
+                        requires_grad=False,
+                    )
+                    quant_handle = _dist_allgather_fn(scales.to(get_accelerator().current_device_name()),
+                                                      quant_scale_buffer, ds_process_group)
+                    quant_info = QuantizationInfo()
+
+                    quant_info.quantized_param = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape).to(
+                        param.device)
+                    quant_info.backend = self.quantizer_module
+                    quant_info.quant_handle = quant_handle
+                    quant_info.scale_buffer = quant_scale_buffer
+                    return AllGatherHandle(handle, param, quantization=quant_info)
+
+            else:
+                partition_sz = sum(p.ds_tensor.ds_numel for p in params)
+
+                if params[0].ds_secondary_tensor is not None and not forward:
+                    partition_sz = sum(p.ds_tensor.ds_numel * p.ds_secondary_tensor_num_of_groups for p in params)
+
+                flat_tensor = torch.empty(partition_sz * world_size,
+                                          dtype=get_only_unique_item(p.dtype
+                                                                     for p in params) if not quant else torch.int8,
+                                          #device=get_accelerator().current_device_name(),
+                                          requires_grad=False)
+                if not quant:
+                    #print_rank_0("here", force=True)
+                    for p in params:
+                        #print_rank_0(f"p.ds_shape: {p.ds_shape}, p.ds_size: {p.ds_size}", force=True)
+                        #print_rank_0(f"p.ds_size: {p.ds_size}", force=True)
+                        #random_p = torch.rand((p.ds_shape), requires_grad=False, dtype=torch.float16).pin_memory()
+                        random_p = torch.rand((p.ds_shape), requires_grad=False, dtype=torch.float16, device=get_accelerator().current_device_name())
+                        #random_p = random_p.to(get_accelerator().current_device_name(), non_blocking=True)
+                        assert random_p.shape == p.ds_shape, "random_p.shape != p.ds_shape"
+                        p.data = random_p
+                        #p.data = p.param.to(get_accelerator().current_device_name(), non_blocking=True)
+                        #print_rank_0(f"p.data.shape: {p.data.shape}, p.param.shape: {p.param.shape}", force=True)
+                        p.ds_status = ZeroParamStatus.AVAILABLE
+                    '''partitions: List[Parameter] = []
+                    for i in range(world_size):
+                        partitions.append(flat_tensor.narrow(0, partition_sz * i, partition_sz))
+
+                    if params[0].ds_secondary_tensor is not None and not forward:
+                        use_secondary_tensor = True
+                        instrument_w_nvtx(torch.cat)(
+                            [p.ds_secondary_tensor.to(get_accelerator().current_device_name()) for p in params],
+                            out=partitions[rank_in_group])
+                    else:
+                        instrument_w_nvtx(
+                            torch.cat)([p.ds_tensor for p in params],
+                                       out=partitions[rank_in_group])
+                    #handle = _dist_allgather_fn(partitions[rank_in_group], flat_tensor, ds_process_group)
+                    #Fix get_partition_dp_group(params[0]))
+                    print_rank_0("here", force=True)
+                    cpu_handle = host_combined(params, use_secondary_tensor, forward, world_size, partitions, self.__asyn_stream) # Async하게 stream하나 생성해야해.'''
+                    return tuple([True])
+
+                    #return tuple([cpu_handle])
+                    '''AllGatherCoalescedHandle(
+                        allgather_handle=handle,
+                        params=params,
+                        partitions=partitions,
+                        world_size=world_size,
+                        use_secondary_tensor=use_secondary_tensor,
+                        forward=forward,
+                    )'''
+                else:
+                    if params[0].ds_secondary_tensor is not None and not forward:
+                        use_secondary_tensor = True
+                        quantized_param, scales = self.quantizer_module.quantize(
+                            instrument_w_nvtx(torch.cat)(
+                                [p.ds_secondary_tensor.to(get_accelerator().current_device_name()) for p in params]))
+                    else:
+                        quantized_param, scales = self.quantizer_module.quantize(
+                            instrument_w_nvtx(
+                                torch.cat)([p.ds_tensor.to(get_accelerator().current_device_name()) for p in params]))
+                    handle = _dist_allgather_fn(quantized_param, flat_tensor, ds_process_group)
+                    quant_info = QuantizationInfo()
+                    quant_scale_buffer = torch.empty(
+                        scales.numel() * world_size,
+                        dtype=torch.float32,
+                        device=get_accelerator().current_device_name(),
+                        requires_grad=False,
+                    )
+                    quant_handle = _dist_allgather_fn(scales, quant_scale_buffer, ds_process_group)
+                    quant_info.quantized_param = flat_tensor
+                    quant_info.backend = self.quantizer_module
+                    quant_info.quant_handle = quant_handle
+                    quant_info.scale_buffer = quant_scale_buffer
+                    quant_info.partition_sz = partition_sz
+                    quant_info.world_size = world_size
+                    return AllGatherCoalescedHandle(
+                        allgather_handle=handle,
+                        params=params,
+                        partitions=None,
+                        world_size=world_size,
+                        use_secondary_tensor=use_secondary_tensor,
+                        forward=forward,
+                        quantization=quant_info,
+                    )
+
 
         def partition(param_list=None, backward=False, hierarchy=0, has_been_updated=False):
             cls = param
@@ -1320,6 +1514,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         param.all_gather = all_gather
         param.all_gather_coalesced = all_gather_coalesced
         param.partition = partition
+        param.cpu_gather = cpu_cat_params
 
         # Collective for averaging gradients
         param.reduce_gradients_at_owner = reduce_gradients_at_owner
