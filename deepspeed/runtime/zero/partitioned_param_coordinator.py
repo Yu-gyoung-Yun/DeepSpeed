@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import collections
 from collections import UserDict
 from typing import Deque, Set
-
+import random
 from deepspeed import comm as dist
 from deepspeed.utils.logging import logger
 from deepspeed.runtime.zero.offload_config import OffloadDeviceEnum
@@ -281,7 +281,11 @@ class PartitionedParameterCoordinator:
             #for param in params_to_fetch:
             #    #debug_rank0(f"-fetch: {param.ds_summary()}")
             #    print_rank_0(f"fetch_numel w/ {param.ds_summary()}", force=True)
-            self.__all_gather_params(params_to_fetch, forward) # here
+            random_boolean = bool(random.getrandbits(1))
+            if random_boolean:
+                self.__cpu_cat_params(params_to_fetch, forward)
+            else:
+                self.__all_gather_params(params_to_fetch, forward) # here
             self.__profiler.stop_event(event_name, fetch_numel)
 
         wait_numel = 0
@@ -295,7 +299,7 @@ class PartitionedParameterCoordinator:
             #print_rank_0(f"-wait: {param.ds_summary()}", force=True)
             if param in self.__inflight_param_registry:
                 wait_numel += param.partition_numel()
-                with get_accelerator().stream(self.__allgather_stream):
+                with get_accelerator().stream(self.__allgather_stream): # __all_gahter에서도 이 stream씀
                     while self.__ongoing_fetch_events and self.__ongoing_fetch_events[0].query():
                         self.__ongoing_fetch_events.popleft()
                     if len(self.__ongoing_fetch_events) > self.__max_ongoing_fetch_events:
@@ -386,7 +390,13 @@ class PartitionedParameterCoordinator:
                         for param in params_to_prefetch:
                             debug_rank0(f"-prefetch: {param.ds_summary()}")
                     print_rank_0("num_prefetching", force=True)
-                    self.__all_gather_params(params_to_prefetch, forward)
+                    random_boolean = bool(random.getrandbits(1))
+                    if random_boolean:
+                        self.__cpu_cat_params(params_to_fetch, forward)
+                    else:
+                        self.__all_gather_params(params_to_fetch, forward) # here
+                    
+                    #self.__all_gather_params(params_to_prefetch, forward)
                     self.__profiler.stop_event(event_name, numel_prefetching)
 
                 if self.__prefetch_nvme:
@@ -422,6 +432,39 @@ class PartitionedParameterCoordinator:
         for param in iter_params(module, recurse=True):
             if param.ds_status != ZeroParamStatus.NOT_AVAILABLE:
                 raise RuntimeError(f"{param.ds_summary()} expected to be released")
+
+    @instrument_w_nvtx
+    def __cpu_cat_params(self, params: Set[Parameter], forward: bool) -> None:
+        """for each partitioned parameter, kick off an async allgather and store
+        the work handle for the in flight parameters."""
+        partitioned_params = []
+        all_gather_numel = 0
+        for param in params:
+            if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
+                partitioned_params.append(param)
+                all_gather_numel += param.ds_numel
+
+        if partitioned_params:
+            self.__n_available_params += all_gather_numel
+            #with get_accelerator().stream(self.__allgather_stream):
+            #    event_name = __class__.FORWARD_ALL_GATHER if forward else __class__.BACKWARD_ALL_GATHER
+            #self.__profiler.start_event(event_name)
+            handle = partitioned_params[0].cpu_gather(partitioned_params, forward)
+            #self.__profiler.stop_event(event_name, all_gather_numel)
+
+            for param in partitioned_params:
+                if param.ds_status == ZeroParamStatus.AVAILABLE:
+                    continue
+                assert param.ds_status == ZeroParamStatus.INFLIGHT, param.ds_summary()
+                self.__inflight_param_registry[param] = handle
+
+            # Release swap buffers for persisted params on nvme since they will never be partitioned or evicted from GPU
+            swap_persisted_params = [
+                p for p in partitioned_params if p.ds_persist and p.ds_tensor.final_location == OffloadDeviceEnum.nvme
+            ]
+            if swap_persisted_params:
+                swap_persisted_params[0].nvme_swapper.remove_partition_and_release_buffers(swap_persisted_params)
+
 
     @instrument_w_nvtx
     def __all_gather_params(self, params: Set[Parameter], forward: bool) -> None:
