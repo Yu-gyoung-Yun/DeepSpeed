@@ -16,6 +16,7 @@ import torch
 from torch import Tensor
 from deepspeed import comm as dist
 from torch.nn import Module
+import random
 from torch.nn import Parameter
 
 from .linear import zero3_linear_wrap
@@ -410,7 +411,7 @@ class InsertPostInitMethodToModuleSubClasses(object):
 
             return wrapped_apply
 
-        def partition_after(f):
+        def partition_after(f): # replace ++init__ in module
 
             @functools.wraps(f)
             def wrapper(module, *args, **kwargs):
@@ -908,6 +909,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         # If we are provided an already-allocated module to prepare.
         if module is not None:
             assert isinstance(module, torch.nn.Module)
+            print_rank_0("convert_to_zero_parameters", force=True)
             self._convert_to_zero_parameters(module.parameters(recurse=True))
 
         self.use_all_gather_into_tensor = dist.has_all_gather_into_tensor()
@@ -941,9 +943,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 assert ds_config.zero_config.offload_param.nvme_path is not None, \
                 f'"nvme_path" in DeepSpeed Config cannot be None if remote device is {OffloadDeviceEnum.nvme}'
 
-    def _post_init_method(self, module):
+    def _post_init_method(self, module): # here
         #see_memory_usage(f"Before converting params in {module.__class__.__name__}", force=False)
-        print_rank_0(f'Converting Params in {module.__class__.__name__}', force=False)
+        print_rank_0(f'Converting Params in {module.__class__.__name__}', force=True)
         see_memory_usage(f"Before converting and partitioning params in {module.__class__.__name__}", force=False)
 
         global param_count
@@ -952,7 +954,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             if not is_zero_param(param):
                 self._convert_to_deepspeed_param(param)
                 print_rank_0(
-                    f"Partitioning param {debug_param2name_id_shape(param)} module={debug_module2name(module)}")
+                    f"Partitioning param {debug_param2name_id_shape(param)} module={debug_module2name(module)}", force=False)
 
                 if get_accelerator().on_accelerator(param):
                     if dist.get_world_group() == self.get_dp_process_group():
@@ -971,6 +973,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             force=False)
 
     def _convert_to_deepspeed_param(self, param):
+        #print_rank_0("_convert_to_deepspeed_param", force=True)
 
         # Partitioned, Normal, Remote
         param.ds_param_type = ZeroParamType.PARTITIONED
@@ -1079,6 +1082,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 assert_ints_same_as_other_ranks([p.ds_tensor.ds_numel for p in params])
 
             if len(params) == 1:
+                print_rank_0(f"[GPU]param.ds_id: {param.ds_id}, ", force=False)
                 # have an opportunity to avoid some intermediate memory allocations
                 param, = params
                 buffer_size = math.ceil(param.ds_numel / world_size) * world_size
@@ -1137,6 +1141,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                                             device=get_accelerator().current_device_name(),
                                             requires_grad=False)
                     if not quant:
+                        # temporary
+                        for param in params:
+                            print_rank_0(f"[GPU]param.ds_id: {param.ds_id}, ", force=False)
                         partitions: List[Parameter] = []
                         for i in range(world_size):
                             partitions.append(flat_tensor.narrow(0, partition_sz * i, partition_sz))
@@ -1313,6 +1320,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
             if len(params) == 1:
                 # have an opportunity to avoid some intermediate memory allocations
+                print_rank_0("cpu_cat_params with if len(params) == 1", force=False)
                 param, = params
                 buffer_size = math.ceil(param.ds_numel / world_size) * world_size
                 if not forward and param.ds_secondary_tensor is not None:
@@ -1326,13 +1334,18 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 )
                 param_ds_tensor = param.ds_secondary_tensor if not forward and param.ds_secondary_tensor is not None else param.ds_tensor
                 if not quant:
-                    handles = _dist_allgather_fn(
-                        param_ds_tensor.to(get_accelerator().current_device_name()),
-                        param_buffer,
+                    print_rank_0(f"[CPU]param.ds_id: {param.ds_id}, ", force=False)
+                    #print_rank_0(f"param_ds_tensor.size: {param_ds_tensor.size()}, param_buffer.size: {param_buffer.size()}", force=True)
+                    '''handles = _dist_allgather_fn(
+                        param_ds_tensor.to(get_accelerator().current_device_name()), #input
+                        param_buffer, #output
                         ds_process_group,
                     )
                     param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape).to(param.device)
-                    return AllGatherHandle(handles, param)
+                    return AllGatherHandle(handles, param)'''
+                    param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape).to(param.device, non_blocking=True)
+                    param.ds_status = ZeroParamStatus.AVAILABLE
+                    return tuple([True])
                 else:
                     quantized_param, scales = self.quantizer_module.quantize(param_ds_tensor)
                     handle = _dist_allgather_fn(quantized_param.to(get_accelerator().current_device_name()),
@@ -1367,18 +1380,26 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                                           #device=get_accelerator().current_device_name(),
                                           requires_grad=False)
                 if not quant:
-                    #print_rank_0("here", force=True)
+                    # No concat
                     for p in params:
-                        #print_rank_0(f"p.ds_shape: {p.ds_shape}, p.ds_size: {p.ds_size}", force=True)
+                        assert p.whole == True, f"p.whole must be True, but the {p.ds_id} has {p.whole}"
+                        print_rank_0(f"p.ds_id: {p.ds_id}, p.ds_shape: {p.ds_shape}, p.ds_size: {p.ds_size}", force=False)
                         #print_rank_0(f"p.ds_size: {p.ds_size}", force=True)
                         #random_p = torch.rand((p.ds_shape), requires_grad=False, dtype=torch.float16).pin_memory()
-                        random_p = torch.rand((p.ds_shape), requires_grad=False, dtype=torch.float16, device=get_accelerator().current_device_name())
+                        # nvme 올라올 때부터 partition 안된 채로 올라와야해 --> host_combined로는 rank끼리 partition된걸 통신할 수 없음. (cat이 너무 오래걸려)
+                        
+                        # Random
+                        #random_p = torch.rand((p.ds_shape), requires_grad=False, dtype=torch.float16, device=get_accelerator().current_device_name())
                         #random_p = random_p.to(get_accelerator().current_device_name(), non_blocking=True)
-                        assert random_p.shape == p.ds_shape, "random_p.shape != p.ds_shape"
-                        p.data = random_p
+                        #assert random_p.shape == p.ds_shape, "random_p.shape != p.ds_shape"
+                        #p.data = random_p
+
                         #p.data = p.param.to(get_accelerator().current_device_name(), non_blocking=True)
                         #print_rank_0(f"p.data.shape: {p.data.shape}, p.param.shape: {p.param.shape}", force=True)
+                        print_rank_0(f"p.ds_tensor: {p.ds_tensor.size}, {p.ds_tensor.shape}", force=False)
+                        p.data = p.ds_tensor.view(p.ds_shape).to(get_accelerator().current_device_name(), non_blocking=False)
                         p.ds_status = ZeroParamStatus.AVAILABLE
+                    
                     '''partitions: List[Parameter] = []
                     for i in range(world_size):
                         partitions.append(flat_tensor.narrow(0, partition_sz * i, partition_sz))
@@ -1386,7 +1407,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     if params[0].ds_secondary_tensor is not None and not forward:
                         use_secondary_tensor = True
                         instrument_w_nvtx(torch.cat)(
-                            [p.ds_secondary_tensor.to(get_accelerator().current_device_name()) for p in params],
+                            [p.ds_secondary_tensor for p in params],
                             out=partitions[rank_in_group])
                     else:
                         instrument_w_nvtx(
@@ -1395,6 +1416,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     #handle = _dist_allgather_fn(partitions[rank_in_group], flat_tensor, ds_process_group)
                     #Fix get_partition_dp_group(params[0]))
                     print_rank_0("here", force=True)
+                    
                     cpu_handle = host_combined(params, use_secondary_tensor, forward, world_size, partitions, self.__asyn_stream) # Async하게 stream하나 생성해야해.'''
                     return tuple([True])
 
@@ -1444,6 +1466,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
 
         def partition(param_list=None, backward=False, hierarchy=0, has_been_updated=False):
+            #first
             cls = param
             print_rank_0(f"{'--'*hierarchy}----Partitioning param {debug_param2name_id_shape_device(cls)}",
                          force=False)
@@ -1512,6 +1535,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
         # Collectives for gathering and partitioning parameters
         param.all_gather = all_gather
+        param.whole = None
         param.all_gather_coalesced = all_gather_coalesced
         param.partition = partition
         param.cpu_gather = cpu_cat_params
@@ -1585,7 +1609,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         return handles
 
     def _partition(self, param_list, force=False, has_been_updated=False):
-        for param in param_list:
+        for param in param_list: # first
             print_rank_0(f"Before Partitioning Param {param.ds_id}", force=False)
             if self.zero_param_process_group is not None:
                 self._partition_param_sec(param, has_been_updated=has_been_updated)
@@ -1616,8 +1640,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             #    print(f"Releasing {param.data.numel()}")
 
             if param.ds_tensor is not None and not has_been_updated:  ##param already partitioned
-
-                #print_rank_0(f"Param  {param.ds_id} pri {param.ds_tensor.size()}  loc? {param.ds_tensor.final_location}", force=True)
+                #not
+                print_rank_0("if param.ds_tensor is not None and not has_been_updated:", force=False)
+                print_rank_0(f"Param  {param.ds_id} pri {param.ds_tensor.size()}  loc? {param.ds_tensor.final_location}", force=False)
                 #param.data = param.ds_tensor.data
 
                 see_memory_usage(f'Before partitioning param {param.ds_id} {param.shape}', force=False)
@@ -1635,19 +1660,47 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 return
 
             tensor_size = self._aligned_size(param)
-            partition_size = tensor_size // self.num_partitions
+            can_offload = self.param_swapper._check_buffer(tensor_size)
+            if can_offload:
+                random_boolean = bool(random.getrandbits(1))
+            else:
+                random_boolean = False
 
+            if param.whole is None:
+                if random_boolean:
+                    partition_size = tensor_size
+                    param.whole = True
+                else:
+                    param.whole = False
+                    partition_size = tensor_size // self.num_partitions
+            else:
+                if param.whole:
+                    partition_size = tensor_size
+                else:
+                    partition_size = tensor_size // self.num_partitions
+            
+            # concat 시간이 오래걸리는데..
+            #random_boolean = bool(random.getrandbits(1))
+            #if random_boolean:
+            #    partition_size = tensor_size # originally not parittioned swap in from nvme to cpu .
+            #    param.whole = True
+            # partition size configure'''
+            
             if param.ds_tensor is None:
+                print_rank_0("if param.ds_tensor is None", force=False)
                 final_location = None
                 if self.remote_device == OffloadDeviceEnum.nvme and self.param_swapper.swappable_tensor(
                         numel=partition_size):
+                    print_rank_0(f"partition_size: {partition_size}", force=False)
                     final_location = OffloadDeviceEnum.nvme
+                    # get_buffer해서 swap_in 할 때 해당 buffer로 불러와.
                     buffer = self.param_swapper.get_buffer(param, partition_size) # host buffer
                     partitioned_tensor = torch.empty(0, dtype=param.dtype, device=buffer.device) # CPU buffer
                     partitioned_tensor.data = buffer.data
                     print_rank_0(f"ID {param.ds_id} Initializing partition for the first time for nvme offload.")
 
                 else:
+                    print_rank_0(f"partition_size!: {partition_size}", force=True)
                     if param.ds_persist:
                         device = self.local_device
                     elif self.remote_device == OffloadDeviceEnum.nvme:
@@ -1673,8 +1726,10 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
             if start < param.ds_numel and end <= param.ds_numel:
                 src_tensor = one_dim_param.narrow(0, start, partition_size)
+                print_rank_0(f"src_tensor.shape: {src_tensor.shape}", force=False)
+                print_rank_0(f"param.ds_tensor.shape: {param.ds_tensor.shape}", force=False)
 
-                param.ds_tensor.copy_(src_tensor)
+                param.ds_tensor.copy_(src_tensor) #  non_blocking=true, if True and this copy is between CPU and GPU, the copy may occur asynchronously with respect to the host. For other cases, this argument has no effect.
 
                 #partitioned_tensor = src_tensor.clone().detach().to(self.remote_device)
 
@@ -2223,4 +2278,4 @@ class GatheredParameters:
         handles = [dist.broadcast(p, self.src_rank, group=p.ds_process_group, async_op=True) for p in self.params]
         for h in handles:
             h.wait()
-        self.params[0].partition(param_list=self.params, has_been_updated=True)
+        self.params[0].partition(param_list=self.params, has_been_updated=True)#here
