@@ -281,7 +281,7 @@ class AsyncPartitionedParameterSwapper(object):
                     for param in params]), "Some params are already available or in flight"
         swap_in_paths = self._get_swap_paths(params)
 
-        if swap_in_buffers is None:
+        if swap_in_buffers is None: # default
             if len(self.available_buffer_ids) < len(swap_in_paths):
                 ids = [p.ds_id for p in params]
                 print_rank_0(
@@ -333,19 +333,24 @@ class AsyncPartitionedParameterSwapper(object):
             dest_buffer.data.copy_(param.ds_tensor.data)
             # Release swap buffer memory assignment. Note, this will mark the parameter not available.
             self.remove_partition_and_release_buffers([param])
-
+    def _check_buffer(self, numel):
+        if numel < self.elements_per_buffer:
+            return True
+        else:
+            return False
     #assign a buffer to a param and return the buffer
     def get_buffer(self, param, numel):
         param_id = param.ds_id
 
         assert self.available_swap_in_buffers(
         ) > 0, f"No swap buffers to allocate for fp16 param {param_id} of numel = {numel}"
-        assert numel < self.elements_per_buffer, f"More elements {numel} than buffer size {self.elements_per_buffer}"
+        #assert numel < self.elements_per_buffer, f"More elements {numel} than buffer size {self.elements_per_buffer}"
 
         self.param_id_to_numel[param_id] = numel
         buffer_id = self.available_buffer_ids.pop()
         self.param_id_to_buffer_id[param_id] = buffer_id
         aligned_swap_numel = self._io_aligned_numel(self.param_id_to_numel[param_id])
+        #self.buffers =torch.empty().pin_memory()
         swap_buffer = self.buffers.narrow(0, int(buffer_id * self.aligned_elements_per_buffer), aligned_swap_numel)
 
         self.param_id_to_swap_buffer[param_id] = swap_buffer
