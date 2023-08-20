@@ -281,11 +281,28 @@ class PartitionedParameterCoordinator:
             #for param in params_to_fetch:
             #    #debug_rank0(f"-fetch: {param.ds_summary()}")
             #    print_rank_0(f"fetch_numel w/ {param.ds_summary()}", force=True)
-            random_boolean = bool(random.getrandbits(1))
-            if random_boolean:
-                self.__cpu_cat_params(params_to_fetch, forward)
-            else:
-                self.__all_gather_params(params_to_fetch, forward) # here
+            #random_boolean = bool(random.getrandbits(1))
+            cpu_fetch_params = []
+            gpu_fetch_params = []
+            cpu_all_gather_numel = 0
+            gpu_all_gather_numel = 0
+            for param in params_to_fetch:
+                #print_rank_0(f"param: {param.ds_id}, status: {param.ds_status}, whole: {param.whole}", force=True)
+                if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
+                    if param.whole == True:
+                        cpu_fetch_params.append(param)
+                        cpu_all_gather_numel += param.ds_numel
+                    elif param.whole == False:
+                        gpu_fetch_params.append(param)
+                        gpu_all_gather_numel += param.ds_numel
+            if cpu_fetch_params:
+                #print_rank_0("if cpu_fetch_params:", force=True)
+                self.__cpu_cat_params(cpu_fetch_params, forward)
+                self.__n_available_params += cpu_all_gather_numel
+            if gpu_fetch_params:
+                #print_rank_0("if gpu_fetch_params:", force=True)
+                self.__all_gather_params(gpu_fetch_params, forward) # here
+                self.__n_available_params += gpu_all_gather_numel
             self.__profiler.stop_event(event_name, fetch_numel)
 
         wait_numel = 0
@@ -389,12 +406,26 @@ class PartitionedParameterCoordinator:
                     if logger.isEnabledFor(logging.DEBUG):
                         for param in params_to_prefetch:
                             debug_rank0(f"-prefetch: {param.ds_summary()}")
-                    print_rank_0("num_prefetching", force=True)
-                    random_boolean = bool(random.getrandbits(1))
-                    if random_boolean:
-                        self.__cpu_cat_params(params_to_fetch, forward)
-                    else:
-                        self.__all_gather_params(params_to_fetch, forward) # here
+                    #print_rank_0("num_prefetching", force=True)
+                    cpu_fetch_params = []
+                    gpu_fetch_params = []
+                    cpu_all_gather_numel = 0
+                    gpu_all_gather_numel = 0
+                    for param in params_to_fetch:
+                        if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
+                            assert param.whole is not None, "param.whole is not None!!"
+                            if param.whole == True:
+                                cpu_fetch_params.append(param)
+                                cpu_all_gather_numel += param.ds_numel
+                            else:
+                                gpu_fetch_params.append(param)
+                                gpu_all_gather_numel += param.ds_numel
+                    if cpu_fetch_params:
+                        self.__cpu_cat_params(cpu_fetch_params, forward)
+                        self.__n_available_params += cpu_all_gather_numel
+                    if gpu_fetch_params:
+                        self.__all_gather_params(gpu_fetch_params, forward) # here
+                        self.__n_available_params += gpu_all_gather_numel
                     
                     #self.__all_gather_params(params_to_prefetch, forward)
                     self.__profiler.stop_event(event_name, numel_prefetching)
@@ -437,15 +468,15 @@ class PartitionedParameterCoordinator:
     def __cpu_cat_params(self, params: Set[Parameter], forward: bool) -> None:
         """for each partitioned parameter, kick off an async allgather and store
         the work handle for the in flight parameters."""
-        partitioned_params = []
-        all_gather_numel = 0
+        partitioned_params = params
+        '''all_gather_numel = 0
         for param in params:
             if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
                 partitioned_params.append(param)
-                all_gather_numel += param.ds_numel
+                all_gather_numel += param.ds_numel'''
 
         if partitioned_params:
-            self.__n_available_params += all_gather_numel
+            #self.__n_available_params += all_gather_numel
             #with get_accelerator().stream(self.__allgather_stream):
             #    event_name = __class__.FORWARD_ALL_GATHER if forward else __class__.BACKWARD_ALL_GATHER
             #self.__profiler.start_event(event_name)
@@ -453,6 +484,7 @@ class PartitionedParameterCoordinator:
             #self.__profiler.stop_event(event_name, all_gather_numel)
 
             for param in partitioned_params:
+                #TODO. AVAILABLE..?
                 if param.ds_status == ZeroParamStatus.AVAILABLE:
                     continue
                 assert param.ds_status == ZeroParamStatus.INFLIGHT, param.ds_summary()
@@ -470,20 +502,20 @@ class PartitionedParameterCoordinator:
     def __all_gather_params(self, params: Set[Parameter], forward: bool) -> None:
         """for each partitioned parameter, kick off an async allgather and store
         the work handle for the in flight parameters."""
-        partitioned_params = []
-        all_gather_numel = 0
+        partitioned_params = params
+        '''all_gather_numel = 0
         for param in params:
             if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
                 partitioned_params.append(param)
-                all_gather_numel += param.ds_numel
+                all_gather_numel += param.ds_numel'''
 
         if partitioned_params:
-            self.__n_available_params += all_gather_numel
+            #self.__n_available_params += all_gather_numel
             with get_accelerator().stream(self.__allgather_stream):
                 event_name = __class__.FORWARD_ALL_GATHER if forward else __class__.BACKWARD_ALL_GATHER
-                self.__profiler.start_event(event_name)
+                #self.__profiler.start_event(event_name)
                 handle = partitioned_params[0].all_gather_coalesced(partitioned_params, forward)
-                self.__profiler.stop_event(event_name, all_gather_numel)
+                #self.__profiler.stop_event(event_name, all_gather_numel)
 
             for param in partitioned_params:
                 if param.ds_status == ZeroParamStatus.AVAILABLE:
