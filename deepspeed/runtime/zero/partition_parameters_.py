@@ -18,7 +18,7 @@ from deepspeed import comm as dist
 from torch.nn import Module
 import random
 from torch.nn import Parameter
-
+import sys
 from .linear import zero3_linear_wrap
 
 from deepspeed.utils import groups
@@ -867,7 +867,6 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         self.user_defined_mode = Scheduling.user_defined_mode
         if self.user_defined_mode:
             self.param_all_gather = load()'''
-        self.first_iteration = True
         self.total_params = []
         self.user_defined_mode = False
         self.cost_create = False
@@ -958,7 +957,6 @@ class Init(InsertPostInitMethodToModuleSubClasses):
     def _post_init_method(self, module): # child's __init__ after here
         #see_memory_usage(f"Before converting params in {module.__class__.__name__}", force=False)
         # at first time
-        self.first_iteration = True
         print_rank_0(f'[_post_init_method] Converting Params in {module.__class__.__name__}', force=True)
         see_memory_usage(f"Before converting and partitioning params in {module.__class__.__name__}", force=False)
 
@@ -981,14 +979,12 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         logger.warn(f"param `{name}` in {module.__class__.__name__} "
                                     f"not on GPU so was not broadcasted from rank 0")
 
-                param.partition()
-                if self.first_iteration:
-                    self.total_params.append((f"{module.__class__.__name__}/{name}", param.ds_numel))
+                param._post_init_partition()
+                self.total_params.append((f"{module.__class__.__name__}/{name}", param.ds_numel))
 
         see_memory_usage(
             f"Param count {param_count}. After converting and partitioning params in {module.__class__.__name__}",
             force=False)
-        self.first_iteration = False
         print_rank_0(f"self.total_params: {self.total_params}", force=True)
 
     def _convert_to_deepspeed_param(self, param):
@@ -1485,8 +1481,22 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         quantization=quant_info,
                     )
 
-
+        def _post_init_partition(param_list=None, backward=False, hierarchy=0, has_been_updated=False):
+            print_rank_0(f"[partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True)
+            # create_reduce_and_remove_grad_hooks, __realse_param, _post_init_method
+            #first
+            cls = param
+            print_rank_0(f"{'--'*hierarchy}----Partitioning param {debug_param2name_id_shape_device(cls)}",
+                         force=False)
+            if param_list is None:
+                #print_rank_0("if param_list is None", force=True)
+                param_list = [cls]
+            #print_rank_0(f"[partition] param_list: {param_list}", force=True)
+            self._partition(param_list, has_been_updated=has_been_updated)
+        
         def partition(param_list=None, backward=False, hierarchy=0, has_been_updated=False):
+            print_rank_0(f"[partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True)
+            # create_reduce_and_remove_grad_hooks, __realse_param, _post_init_method
             #first
             cls = param
             print_rank_0(f"{'--'*hierarchy}----Partitioning param {debug_param2name_id_shape_device(cls)}",
@@ -1631,8 +1641,11 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
         return handles
 
+    # backward=True로 partition()이 들어오기도 함.
     def _partition(self, param_list, force=False, has_been_updated=False):
+        print_rank_0(f"[partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True) # __release_param
 
+        # 이거 overhead가 좀 클 듯 --> 따로 cost_model, scheudling 저장하고 부르는게 나을 듯..
         if self.__mode == "cpu-side-concat":
             if len(self.total_params) == len(self.__param_cost_per_mode[0]):
                 self.__mode = "gpu-side-allgather"
