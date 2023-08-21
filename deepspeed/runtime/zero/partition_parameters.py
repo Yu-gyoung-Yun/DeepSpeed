@@ -943,9 +943,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 assert ds_config.zero_config.offload_param.nvme_path is not None, \
                 f'"nvme_path" in DeepSpeed Config cannot be None if remote device is {OffloadDeviceEnum.nvme}'
 
-    def _post_init_method(self, module): # here
+    def _post_init_method(self, module): # child's __init__ after here
         #see_memory_usage(f"Before converting params in {module.__class__.__name__}", force=False)
-        print_rank_0(f'[_post_init_method] Converting Params in {module.__class__.__name__}', force=False)
+        print_rank_0(f'[_post_init_method] Converting Params in {module.__class__.__name__}', force=True)
         see_memory_usage(f"Before converting and partitioning params in {module.__class__.__name__}", force=False)
 
         global param_count
@@ -1617,7 +1617,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 self._partition_param_sec(param, has_been_updated=has_been_updated)
             self._partition_param(param, has_been_updated=has_been_updated)
 
-            param.ds_status = ZeroParamStatus.NOT_AVAILABLE
+            param.ds_status = ZeroParamStatus.NOT_AVAILABLE # 처음엔 .AVAILABLE
             # if param.ds_tensor is not None:
             #    assert id(param.data) == id(param.ds_tensor.data), \
             #    "After the parameters are initially partitioned, make sure we are not recreating the partition."
@@ -1626,9 +1626,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
     def _partition_param(self, param, buffer=None, has_been_updated=False):
         assert param.ds_status is not ZeroParamStatus.INFLIGHT, f" {param} Cannot partition a param in flight"
         global reuse_buffers
-        print_rank_0(f"Param id {param.ds_id} status is {param.ds_status}", force=True)
+        print_rank_0(f"Param id {param.ds_id} status is {param.ds_status}", force=True) # 대부분 다 AVAILABLE
         if param.ds_status is ZeroParamStatus.AVAILABLE:
-            print_rank_0(f"Partitioning param id {param.ds_id} reuse buffers {reuse_buffers}", force=True)
+            print_rank_0(f"Partitioning param id {param.ds_id} reuse buffers {reuse_buffers}", force=True) # 다 reuse_buffers = False
             # if reuse_buffers and False:
             #     numel = buffer.numel()
             #     buffer = param.data.view(-1)
@@ -1671,7 +1671,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
             if param.whole is None:
                 if random_boolean:
-                    print_rank_0("cpu-side offload", force=True)
+                    #print_rank_0("cpu-side offload", force=True)
                     partition_size = tensor_size
                     param.whole = True
                 else:
@@ -1679,7 +1679,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     partition_size = tensor_size // self.num_partitions
             else:
                 if param.whole:
-                    print_rank_0("cpu-side offload", force=True)
+                    #print_rank_0("cpu-side offload", force=True)
                     partition_size = tensor_size
                 else:
                     partition_size = tensor_size // self.num_partitions
@@ -1696,7 +1696,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 final_location = None
                 if self.remote_device == OffloadDeviceEnum.nvme and self.param_swapper.swappable_tensor(
                         numel=partition_size):
-                    print_rank_0(f"partition_size: {partition_size}", force=False)
+                    print_rank_0(f"partition_size: {partition_size}", force=True)
                     final_location = OffloadDeviceEnum.nvme
                     # get_buffer해서 swap_in 할 때 해당 buffer로 불러와.
                     buffer = self.param_swapper.get_buffer(param, partition_size) # host buffer
@@ -1705,7 +1705,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     print_rank_0(f"ID {param.ds_id} Initializing partition for the first time for nvme offload.")
 
                 else:
-                    print_rank_0(f"partition_size!: {partition_size}", force=False)
+                    print_rank_0(f"partition_size!: {partition_size}", force=True)
                     if param.ds_persist:
                         device = self.local_device
                     elif self.remote_device == OffloadDeviceEnum.nvme:
