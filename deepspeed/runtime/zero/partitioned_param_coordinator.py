@@ -511,6 +511,8 @@ class PartitionedParameterCoordinator:
 
         if partitioned_params:
             #self.__n_available_params += all_gather_numel
+            # 0x72bd780>
+            print_rank_0(f"self.__allgather_stream: {self.__allgather_stream}", force=False)
             with get_accelerator().stream(self.__allgather_stream):
                 event_name = __class__.FORWARD_ALL_GATHER if forward else __class__.BACKWARD_ALL_GATHER
                 #self.__profiler.start_event(event_name)
