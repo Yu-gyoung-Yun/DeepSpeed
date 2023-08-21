@@ -868,7 +868,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         if self.user_defined_mode:
             self.param_all_gather = load()'''
         self.total_params = []
-        self.user_defined_mode = True
+        self.user_defined_mode = False
         self.cost_create = False
         # possible mode: ["Random", "cpu-side-concat", "gpu-side-allgather"]
         self.__mode = "Random"
@@ -959,6 +959,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         Init.model_persistence_threshold = ds_config.zero_config.model_persistence_threshold // self.num_partitions
 
     def _convert_to_zero_parameters(self, param_list): # not here
+        print_rank_0("_convert_to_zero_parameters", force=True)
         for param in param_list:
             if is_zero_param(param):
                 continue
@@ -1732,7 +1733,6 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         random_boolean = bool(random.getrandbits(1))
                     else:
                         random_boolean = False
-
                     if param.whole is None:
                         if random_boolean:
                             #print_rank_0("cpu-side offload", force=True)
@@ -1741,6 +1741,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         else:
                             param.whole = False
                             partition_size = tensor_size // self.num_partitions
+                            #print_rank_0(f"self.num_partitions: {self.num_partitions}", force=True)
                     else:
                         if param.whole:
                             #print_rank_0("cpu-side offload", force=True)
