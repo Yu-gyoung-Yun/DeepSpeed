@@ -894,12 +894,12 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         random_lst = generate_lists(self.total_sub_modules) # increase order, # 자기 index보다는 작아야해'''
         self.param_prefetch_module = None # weight/bias 같이 있음.
         
-        self.num_total_params = 200
+        self.num_total_params = 400
         j = self.num_total_params//2
         k = self.num_total_params - j
         random_list = [False] * j + [True] * k
         random.shuffle(random_list)
-        self.param_all_gather = random_list
+        self.param_all_gather = random_list if self.user_defined_mode else None
 
         if self.zero_param_process_group is not None:
             self.num_ranks_in_param_group = groups._get_zero_param_intra_parallel_group_world_size()
