@@ -868,12 +868,38 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         if self.user_defined_mode:
             self.param_all_gather = load()'''
         self.total_params = []
-        self.user_defined_mode = False
+        self.user_defined_mode = True
         self.cost_create = False
         # possible mode: ["Random", "cpu-side-concat", "gpu-side-allgather"]
         self.__mode = "Random"
         if self.__mode == "Random":
             self.cost_create = True
+
+        '''self.total_sub_modules = len(list(module.modules()))
+        print_rank_0(f"self.total_sub_modules: {self.total_sub_modeuls}", force=True)
+        def generate_lists(length):
+            def backtrack(index):
+                if index == length:
+                    result.append(list(L))
+                    return
+
+                for i in range(L[index - 1], index):
+                    L[index] = i
+                    backtrack(index + 1)
+
+            result = []
+            L = [0] * length
+            backtrack(1)
+            return result[2] # Get random scheduling
+        random_lst = generate_lists(self.total_sub_modules) # increase order, # 자기 index보다는 작아야해'''
+        self.param_prefetch_module = None # weight/bias 같이 있음.
+        
+        self.num_total_params = 200
+        j = self.num_total_params//2
+        k = self.num_total_params - j
+        random_list = [False] * j + [True] * k
+        random.shuffle(random_list)
+        self.param_all_gather = random_list
 
         if self.zero_param_process_group is not None:
             self.num_ranks_in_param_group = groups._get_zero_param_intra_parallel_group_world_size()
@@ -961,6 +987,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         see_memory_usage(f"Before converting and partitioning params in {module.__class__.__name__}", force=False)
 
         global param_count
+        #  In Pytorch, the results of print(model) or .named_children(), etc are listed based on the order they are declared in __init__ of the model's class e.g.
         for name, param in module.named_parameters(recurse=False):
             param_count += param.numel()
             if not is_zero_param(param):
@@ -979,7 +1006,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         logger.warn(f"param `{name}` in {module.__class__.__name__} "
                                     f"not on GPU so was not broadcasted from rank 0")
 
-                param._post_init_partition()
+                param.partition()
                 self.total_params.append((f"{module.__class__.__name__}/{name}", param.ds_numel))
 
         see_memory_usage(
@@ -1480,20 +1507,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         forward=forward,
                         quantization=quant_info,
                     )
-
-        def _post_init_partition(param_list=None, backward=False, hierarchy=0, has_been_updated=False):
-            print_rank_0(f"[partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True)
-            # create_reduce_and_remove_grad_hooks, __realse_param, _post_init_method
-            #first
-            cls = param
-            print_rank_0(f"{'--'*hierarchy}----Partitioning param {debug_param2name_id_shape_device(cls)}",
-                         force=False)
-            if param_list is None:
-                #print_rank_0("if param_list is None", force=True)
-                param_list = [cls]
-            #print_rank_0(f"[partition] param_list: {param_list}", force=True)
-            self._partition(param_list, has_been_updated=has_been_updated)
-        
+      
         def partition(param_list=None, backward=False, hierarchy=0, has_been_updated=False):
             print_rank_0(f"[partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True)
             # create_reduce_and_remove_grad_hooks, __realse_param, _post_init_method
@@ -1680,26 +1694,25 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
             # if deepspeed.comm.get_rank():
             #    print(f"Releasing {param.data.numel()}")
-            if self.cost_create: 
-                if param.ds_tensor is not None and not has_been_updated:  ##param already partitioned
-                    #not
-                    print_rank_0("if param.ds_tensor is not None and not has_been_updated:", force=True)
-                    print_rank_0(f"Param  {param.ds_id} pri {param.ds_tensor.size()}  loc? {param.ds_tensor.final_location}", force=True)
-                    #param.data = param.ds_tensor.data
+            if param.ds_tensor is not None and not has_been_updated:  ##param already partitioned
+                #not
+                print_rank_0("if param.ds_tensor is not None and not has_been_updated:", force=True)
+                print_rank_0(f"Param  {param.ds_id} pri {param.ds_tensor.size()}  loc? {param.ds_tensor.final_location}", force=True)
+                #param.data = param.ds_tensor.data
 
-                    see_memory_usage(f'Before partitioning param {param.ds_id} {param.shape}', force=False)
-                    # param.data does not store anything meaningful in partitioned state
-                    free_param(param)
-                    see_memory_usage(f'After partitioning param {param.ds_id} {param.shape}', force=False)
+                see_memory_usage(f'Before partitioning param {param.ds_id} {param.shape}', force=False)
+                # param.data does not store anything meaningful in partitioned state
+                free_param(param)
+                see_memory_usage(f'After partitioning param {param.ds_id} {param.shape}', force=False)
 
-                    if param.ds_tensor.final_location == OffloadDeviceEnum.nvme:
-                        print_rank_0(f"Param {param.ds_id} partition released since it exists in nvme", force=False)
-                        param.nvme_swapper.remove_partition_and_release_buffers([param])
-                        print_rank_0(
-                            f"after swap Param {param.ds_id} {param.ds_tensor.shape} partition released since it exists in nvme",
-                            force=False)
+                if param.ds_tensor.final_location == OffloadDeviceEnum.nvme:
+                    print_rank_0(f"Param {param.ds_id} partition released since it exists in nvme", force=False)
+                    param.nvme_swapper.remove_partition_and_release_buffers([param])
+                    print_rank_0(
+                        f"after swap Param {param.ds_id} {param.ds_tensor.shape} partition released since it exists in nvme",
+                        force=False)
 
-                    return
+                return
             #if self.cost_create is False,: 
             #param.ds_tensor is None # only at first iteration
             tensor_size = self._aligned_size(param)
@@ -1735,12 +1748,16 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         else:
                             partition_size = tensor_size // self.num_partitions
             elif self.user_defined_mode:
-                if self.param_all_gather[param]: # True, _all_gather_fn
+                # cost를 end2end로 가져올지 모르니까 일단 random으로!
+                if self.param_all_gather[param.ds_id]: # True, _all_gather_fn
                     param.whole = False
                     partition_size = tensor_size // self.num_partitions
-                elif not self.param_all_gather[param]:
+                elif not self.param_all_gather[param.ds_id]:
                     param.whole = True
                     partition_size = tensor_size
+            
+            #param.prefetch_module = self.param_prefetch_module[param.ds_id]
+            param.prefetch_module = max(0, param.ds_id - 3) # random_index
             
             # concat 시간이 오래걸리는데..
             #random_boolean = bool(random.getrandbits(1))
