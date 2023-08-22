@@ -1688,7 +1688,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             print_rank_0(f"Before Partitioning Param {param.ds_id}", force=True)
             if self.zero_param_process_group is not None:
                 self._partition_param_sec(param, has_been_updated=has_been_updated)
-            self.__warmup_and_cost__partition_param(param, has_been_updated=has_been_updated)
+            self.__warmup_and_cost_partition_param(param, has_been_updated=has_been_updated)
             param.ds_status = ZeroParamStatus.NOT_AVAILABLE # 처음엔 .AVAILABLE
             # if param.ds_tensor is not None:
             #    assert id(param.data) == id(param.ds_tensor.data), \
