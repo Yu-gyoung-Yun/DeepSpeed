@@ -1,0 +1,40 @@
+** Class Init에 pin_memory=True,로 바꿈.pretrain_gpt.py에서 pin_memory를 지정해주지 않아서.. --> 아 근데 config에서 바로 pin_memory=Ture로 줄 수 있음.
+
+
+
+
+** (항상 최악을 먼저 생각하자.) 교수님한테 먼저 말하는게 나을 듯. --> 교수님이 말하는걸 ok하시면, 여기에 공유하고, 근데 no라고 하시진 않을 것 같은데, 협업이 안된다면 말 안하는게 맞지... --> 이건 진짜 교수님 소관이 맞을 듯..근데 여기 super com이 없으면 실험할 수 있는 환경이 없어.. 뭐.. 교수님이 따로 구할 수도 있긴 하겠지..
+
+
+consumed samples:1152: forward:269.91
+Warmup & Cost Model
+1. 기존의 execution에 if문 추가하는 식으로 진행하면 추가 overhead가 낄 수 있음. --> 기존의 execution과는 별개로 warmup_and_cost를 측정해서 저장하도록 해야함.
+- 방법 1. pretrain_gpt.py 바깥에서 똑같은 execution을 user_defined_schedule로 호출해서 넣을 수 있도록 만들고, warmup_cost 측정을 별개의 폴더에서 실행해서 꺼내올 수 있도록 한다. 
+
+* 따로, nvme->dram->hbm으로의 cost를 time.time으로 측정하는 부분도 코드를 따로 짜야함. 
+    --> 해당 param여러개를 cpu로 동시에 들고올 때는 for문을 통해서 하나씩 async로 보내지만, --> 
+    - 이것들 cost는 어떻게 측정하려고..? --> 그냥 send하는 time만 측정?
+
+- All-gather인 경우, 단체로 보낼때랑 하나씩 보낼 때의 time 차이가 클려나? 
+    --> concat하는거면..([CHECK] A100 GPU 안에서 하는 것도 오래 걸릴까?) --> concat이 시간이 오래 걸린다. --> 
+
+ Q. all-gather로 할 때는 flat-tensor로 만들어서 보내기 때문에 해당 effect도 고려를 해야하는데 --> 이것도 cost를 어떻게 만들지??
+--> markov의 도움이 필요하려나..??
+--> 지금 random partition (누구를 cpu/gpu-side gather할지)만을 고려했기 때문에, 얼마만큼의 param을 언제보낼지를 효과적으로 더 고려하면 더 좋은 algorithm이 됨.
+
+** 작은 모델, nvme 없는 데서 효과가 크게 나타나는 이유: 1. all-gather로 인한 overhead가 원래 컸기 때문(nvme없으면, layer execution은 빨리 끝나는데 비해 param 들고와서 all-gather하는 시간이 크다.)
+--> 지금은 모델이 큰거에 비해 batch size가 작아서, layer execution하는 동안 all-gather가 잘 가려져있기에 굳이 cpu로 추가로 더 들고온다고 효과가 없는듯..? --> 근데 내 아이디어는 무조건 효과가 있어야 하는데.. (중첩 효과로 3개의 병렬 communicate를 할 수 있으니까..) ==> 이게 지금 완벽히 되고 있는지를 봐야할 것 같은데, H2D를 non_block으로 보내면 원래 nsys에 그 자리에 안나타나는 걸까?
+-- > 아니면, 너무 돌아가지말고, cost-model없이, 대충 batch-size와 all-gather 효과를 고려해서 regression model?로 얼만큼 cpu로 보낼지, 누구를 언제 보낼지, 어떻게 partition할 지를 정할 수는 없나..?
+=> concat 하는 cost가 크지 않으면 그냥 partition한 채로 concat하는게 나을 듯 --> 알아보기
+
+아니면 mpe처럼 cost-model을 위한 model을 만들어서...
+아 아니면, all-gather하는 것도 결국엔 size별로 다른거 뿐이니까.. concat하는 size만을 통해서 cost 예측할 수 있는 regression model..? 
+
+측정한 후에는?
+하나로 합칠 때:
+1. all-cpu가 아닐 수 있음(swap-buffer 문제로) --> 해당 param은 무조건 all-gather를 할 수 밖에.. --> scheduling이 달라지면 가능할 수도? (swap-buffer 남아서), 
+
+
+
+<구현 상 추가 overhead>
+2. 기존의 execution에 user_defined_schedule을 넣으려면 해당 정보를 저장하는 data-structure saving overhead가 추가로 붙을 예정
