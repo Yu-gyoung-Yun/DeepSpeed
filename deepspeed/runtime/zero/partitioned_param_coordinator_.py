@@ -8,6 +8,7 @@ import collections
 from collections import UserDict
 from typing import Deque, Set
 import random
+import sys
 from deepspeed import comm as dist
 from deepspeed.utils.logging import logger
 from deepspeed.runtime.zero.offload_config import OffloadDeviceEnum
@@ -22,6 +23,8 @@ import logging
 def debug_rank0(message: str) -> None:
     if dist.get_rank() == 0:
         logger.debug(message)
+
+
 @instrument_w_nvtx
 def get_all_parameters(sub_module, recurse=False):
     return itertools.chain(sub_module.named_parameters(recurse=recurse), sub_module.ds_external_parameters())
@@ -29,6 +32,7 @@ def get_all_parameters(sub_module, recurse=False):
 
 def iter_params(module: Module, recurse=False) -> Iterable[Parameter]:
     return map(lambda pair: pair[1], get_all_parameters(module, recurse))
+
 
 class ZeRoTraceMode(Enum):
     # Record trace of the network during a single forward+backward (for training) or forward (for inference)
@@ -76,6 +80,7 @@ class PartitionedParameterCoordinator:
         prefetch_nvme: bool = False,
         timers=None,
     ) -> None:
+        print_rank_0(f"[PartitionedParameterCoordinator] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True)
         # mapping of param -> handle for each param that is currently in flight
         self.__inflight_param_registry = inflight_param_registry
         # keeps track of the number of submodules invoked so far.
@@ -248,7 +253,7 @@ class PartitionedParameterCoordinator:
     """
     @instrument_w_nvtx
     @torch.no_grad()
-    def fwd_fetch_sub_module(self, params_to_fetch,  current_submodule: Module, forward: bool) -> None:
+    def fwd_fetch_sub_module(self, params_to_fetch, schedule_gpu, schedule_cpu, current_submodule: Module, forward: bool) -> None:
         """This method does the following (in order):
         1. kick off fetch for parameters in immediately required sub module
         2. kick off fetch for next few parameters we will need later (prefetch)
@@ -263,6 +268,7 @@ class PartitionedParameterCoordinator:
                     "inflight": [p.ds_id for p in self.__inflight_param_registry],
                 }))
 
+        #params_to_fetch = frozenset(iter_params(current_submodule))
         fetch_numel = sum(
             [p.partition_numel() for p in params_to_fetch if p.ds_status == ZeroParamStatus.NOT_AVAILABLE])
         if fetch_numel > 0:
@@ -335,6 +341,7 @@ class PartitionedParameterCoordinator:
         # kick off parameter prefetches for upcoming modules
         # don't prefetch if we dont have a completed model trace
         if self.is_complete_trace():
+        #if schedule_gpu and schedule_cpu:
             #print_rank_0(f"if self.is_complete_trace() and self.j >= 3:", force=True)
             # go through the parameters we need for the current module and pop them
             # off the fetch queue so that they aren't prefetched later.
@@ -433,7 +440,7 @@ class PartitionedParameterCoordinator:
 
     @instrument_w_nvtx
     @torch.no_grad()
-    def fetch_sub_module(self,current_submodule: Module, forward: bool) -> None:
+    def fetch_sub_module(self, current_submodule: Module, forward: bool) -> None:
         """This method does the following (in order):
         1. kick off fetch for parameters in immediately required sub module
         2. kick off fetch for next few parameters we will need later (prefetch)
@@ -778,4 +785,3 @@ class PartitionedParameterCoordinator:
 
         if swap_in_params:
             swap_in_params[0].nvme_swapper.swap_in(swap_in_params, async_op=True)
-arti
