@@ -1314,6 +1314,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     for p in params:
                         assert p.whole == True, f"p.whole must be True, but the {p.ds_id} has {p.whole}"
                         #print_rank_0(f"p.ds_tensor: {p.ds_tensor.size}, {p.ds_tensor.shape}", force=False)
+                        # RuntimeError: shape '[2048]' is invalid for input of size 2052 # --> when gpus=6
                         p.data = p.ds_tensor.pin_memory().view(p.ds_shape).to(get_accelerator().current_device_name(), non_blocking=True)
                         p.ds_status = ZeroParamStatus.AVAILABLE
                         #print_rank_0(f"p.ds_id: {p.ds_id}, p.ds_shape: {p.ds_shape}, p.ds_size: {p.ds_size}", force=False)
@@ -1591,7 +1592,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             tensor_size = self._aligned_size(param)
             can_offload = self.param_swapper._check_buffer(tensor_size)
             if can_offload:
-                random.seed(44)
+                random.seed(27)
                 random_boolean = bool(random.getrandbits(1))
             else:
                 random_boolean = False
