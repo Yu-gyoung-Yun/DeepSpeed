@@ -1592,7 +1592,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             tensor_size = self._aligned_size(param)
             can_offload = self.param_swapper._check_buffer(tensor_size)
             if can_offload:
-                random.seed(27)
+                random.seed(24)
                 random_boolean = bool(random.getrandbits(1))
             else:
                 random_boolean = False
