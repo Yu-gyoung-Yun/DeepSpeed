@@ -482,6 +482,8 @@ class DeepSpeedZeRoOffload(object):
 
     @torch.no_grad()
     def pre_sub_module_forward_function(self, sub_module):
+        #memory_stats = torch.cuda.memory_stats(0)
+        #print_rank_0(f"Before memory_stats: {memory_stats}", force=True)
         see_memory_usage(f"Before sub module function {sub_module.__class__.__name__}", force=False)
 
         global FWD_MODULE_STACK
@@ -493,6 +495,7 @@ class DeepSpeedZeRoOffload(object):
             param_coordinator.record_module(sub_module)
         param_coordinator.fetch_sub_module(sub_module, forward=True)
 
+        #print_rank_0(f"AFTER memory_stats: {memory_stats}", force=True)
         see_memory_usage(f"Before sub module function {sub_module.__class__.__name__} after fetch", force=False)
 
     @torch.no_grad()
