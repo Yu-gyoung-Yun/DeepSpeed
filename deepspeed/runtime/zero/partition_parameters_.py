@@ -741,7 +741,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                  dtype=None,
                  mpu=None,
                  zero_param_parallel_group=None,
-                 zero_quantized_weights=False):
+                 zero_quantized_weights=False,
+                 warmup_and_cost=2):
         """A context to enable massive model construction for training with
         ZeRO-3. Models are automatically partitioned (or, sharded) across the
         system and converted to half precision.
@@ -849,6 +850,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             self.ds_process_group = dist.get_world_group()
         else:
             self.ds_process_group = data_parallel_group
+        
+        self.warmup_and_cost = warmup_and_cost
 
         self.rank = dist.get_rank(group=self.ds_process_group)
         self.dp_world_size = dist.get_world_size(group=self.ds_process_group)
@@ -894,12 +897,12 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         random_lst = generate_lists(self.total_sub_modules) # increase order, # 자기 index보다는 작아야해'''
         self.param_prefetch_module = None # weight/bias 같이 있음.
         
-        self.num_total_params = 400
+        self.num_total_params = 200
         j = self.num_total_params//2
         k = self.num_total_params - j
         random_list = [False] * j + [True] * k
         random.shuffle(random_list)
-        self.param_all_gather = random_list if self.user_defined_mode else None
+        self.param_all_gather = random_list
 
         if self.zero_param_process_group is not None:
             self.num_ranks_in_param_group = groups._get_zero_param_intra_parallel_group_world_size()
@@ -1007,13 +1010,13 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         logger.warn(f"param `{name}` in {module.__class__.__name__} "
                                     f"not on GPU so was not broadcasted from rank 0")
 
-                param.partition()
+                param.warmup_and_cost_partition()
                 self.total_params.append((f"{module.__class__.__name__}/{name}", param.ds_numel))
 
         see_memory_usage(
             f"Param count {param_count}. After converting and partitioning params in {module.__class__.__name__}",
             force=False)
-        print_rank_0(f"self.total_params: {self.total_params}", force=True)
+        #print_rank_0(f"self.total_params: {self.total_params}", force=True)
 
     def _convert_to_deepspeed_param(self, param):
         #print_rank_0("_convert_to_deepspeed_param", force=True)
@@ -1508,7 +1511,20 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         forward=forward,
                         quantization=quant_info,
                     )
-      
+        
+        def warmup_and_cost_partition(param_list=None, backward=False, hierarchy=0, has_been_updated=False):
+            print_rank_0(f"[partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True)
+            # create_reduce_and_remove_grad_hooks, __realse_param, _post_init_method
+            #first
+            cls = param
+            print_rank_0(f"{'--'*hierarchy}----Partitioning param {debug_param2name_id_shape_device(cls)}",
+                         force=False)
+            if param_list is None:
+                #print_rank_0("if param_list is None", force=True)
+                param_list = [cls]
+            #print_rank_0(f"[partition] param_list: {param_list}", force=True)
+            self._warmup_and_cost_partition(param_list, has_been_updated=has_been_updated)
+        
         def partition(param_list=None, backward=False, hierarchy=0, has_been_updated=False):
             print_rank_0(f"[partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True)
             # create_reduce_and_remove_grad_hooks, __realse_param, _post_init_method
@@ -1586,6 +1602,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         param.whole = None
         param.all_gather_coalesced = all_gather_coalesced
         param.partition = partition
+        param.warmup_and_cost_partition = warmup_and_cost_partition
         param.cpu_gather = cpu_cat_params
 
         # Collective for averaging gradients
@@ -1657,8 +1674,195 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         return handles
 
     # backward=True로 partition()이 들어오기도 함.
+    def _warmup_and_cost_partition(self, param_list, force=False, has_been_updated=False):
+        print_rank_0(f"[_partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True) # __release_param
+
+        # 이거 overhead가 좀 클 듯 --> 따로 cost_model, scheudling 저장하고 부르는게 나을 듯..
+        if self.__mode == "cpu-side-concat":
+            if len(self.total_params) == len(self.__param_cost_per_mode[0]):
+                self.__mode = "gpu-side-allgather"
+        if self.__mode == "gpu-side-allgather":
+            if len(self.total_params) == len(self.__param_cost_per_mode[1]):
+                self.cost_create = True
+        for param in param_list: # first
+            print_rank_0(f"Before Partitioning Param {param.ds_id}", force=True)
+            if self.zero_param_process_group is not None:
+                self._partition_param_sec(param, has_been_updated=has_been_updated)
+            self.__warmup_and_cost__partition_param(param, has_been_updated=has_been_updated)
+            param.ds_status = ZeroParamStatus.NOT_AVAILABLE # 처음엔 .AVAILABLE
+            # if param.ds_tensor is not None:
+            #    assert id(param.data) == id(param.ds_tensor.data), \
+            #    "After the parameters are initially partitioned, make sure we are not recreating the partition."
+            #print_rank_0(f"After Partitioning Param {param.ds_id} {param.ds_tensor.size()} {param.ds_tensor}",force=False)
+    @instrument_w_nvtx
+    def __warmup_and_cost_partition_param(self, param, buffer=None, has_been_updated=False): # 얘는 계속 들어와.
+        assert param.ds_status is not ZeroParamStatus.INFLIGHT, f" {param} Cannot partition a param in flight"
+        global reuse_buffers
+        print_rank_0(f"Param id {param.ds_id} status is {param.ds_status}", force=False) # 대부분 다 AVAILABLE
+        if param.ds_status is ZeroParamStatus.AVAILABLE:
+            print_rank_0(f"Partitioning param id {param.ds_id} reuse buffers {reuse_buffers}", force=False) # 다 reuse_buffers = False
+            # if reuse_buffers and False:
+            #     numel = buffer.numel()
+            #     buffer = param.data.view(-1)
+            #     print_rank_0(
+            #         "Returning buffer for param {param.ds_id} with numel {param.ds_numel} to empty buffers",
+            #         force=False)
+            #     if numel in empty_buffers:
+            #         empty_buffers[numel].append(buffer)
+
+            # if deepspeed.comm.get_rank():
+            #    print(f"Releasing {param.data.numel()}")
+            if param.ds_tensor is not None and not has_been_updated:  ##param already partitioned
+                #not
+                print_rank_0("if param.ds_tensor is not None and not has_been_updated:", force=True)
+                print_rank_0(f"Param  {param.ds_id} pri {param.ds_tensor.size()}  loc? {param.ds_tensor.final_location}", force=True)
+                #param.data = param.ds_tensor.data
+
+                see_memory_usage(f'Before partitioning param {param.ds_id} {param.shape}', force=False)
+                # param.data does not store anything meaningful in partitioned state
+                free_param(param)
+                see_memory_usage(f'After partitioning param {param.ds_id} {param.shape}', force=False)
+
+                if param.ds_tensor.final_location == OffloadDeviceEnum.nvme:
+                    print_rank_0(f"Param {param.ds_id} partition released since it exists in nvme", force=False)
+                    param.nvme_swapper.remove_partition_and_release_buffers([param])
+                    print_rank_0(
+                        f"after swap Param {param.ds_id} {param.ds_tensor.shape} partition released since it exists in nvme",
+                        force=False)
+
+                return
+            #if self.cost_create is False,: 
+            #param.ds_tensor is None # only at first iteration
+            tensor_size = self._aligned_size(param)
+            if not self.user_defined_mode:
+                if self.__mode == "cpu-side-concat":
+                    # assert buffer size is enough when nvme -> DRAM
+                    param.whole = True
+                    partition_size = tensor_size
+                    #can_offload = self.param_swapper._check_buffer(tensor_size)
+                elif self.__mode == "gpu-side-allgather":
+                    param.whole = False
+                    partition_size = tensor_size // self.num_partitions
+                elif self.__mode == "Random":
+                    can_offload = self.param_swapper._check_buffer(tensor_size)
+                    if can_offload:
+                        random.seed(24)
+                        random_boolean = bool(random.getrandbits(1))
+                    else:
+                        random_boolean = False
+                    if param.whole is None:
+                        if random_boolean:
+                            #print_rank_0("cpu-side offload", force=True)
+                            partition_size = tensor_size
+                            param.whole = True
+                        else:
+                            param.whole = False
+                            partition_size = tensor_size // self.num_partitions
+                            #print_rank_0(f"self.num_partitions: {self.num_partitions}", force=True)
+                    else:
+                        if param.whole:
+                            #print_rank_0("cpu-side offload", force=True)
+                            partition_size = tensor_size
+                        else:
+                            partition_size = tensor_size // self.num_partitions
+            elif self.user_defined_mode:
+                # cost를 end2end로 가져올지 모르니까 일단 random으로!
+                if self.param_all_gather[param.ds_id]: # True, _all_gather_fn
+                    param.whole = False
+                    partition_size = tensor_size // self.num_partitions
+                elif not self.param_all_gather[param.ds_id]:
+                    param.whole = True
+                    partition_size = tensor_size
+            
+            #param.prefetch_module = self.param_prefetch_module[param.ds_id]
+            param.prefetch_module = max(0, param.ds_id - 3) # random_index
+            
+            # concat 시간이 오래걸리는데..
+            #random_boolean = bool(random.getrandbits(1))
+            #if random_boolean:
+            #    partition_size = tensor_size # originally not parittioned swap in from nvme to cpu .
+            #    param.whole = True
+            # partition size configure'''
+            
+            if param.ds_tensor is None:
+                print_rank_0("if param.ds_tensor is None", force=False)
+                final_location = None
+                if self.remote_device == OffloadDeviceEnum.nvme and self.param_swapper.swappable_tensor(
+                        numel=partition_size):
+                    print_rank_0(f"partition_size: {partition_size}", force=True)
+                    final_location = OffloadDeviceEnum.nvme
+                    # get_buffer해서 swap_in 할 때 해당 buffer로 불러와.
+                    buffer = self.param_swapper.get_buffer(param, partition_size) # host buffer
+                    partitioned_tensor = torch.empty(0, dtype=param.dtype, device=buffer.device) # CPU buffer
+                    partitioned_tensor.data = buffer.data
+                    print_rank_0(f"ID {param.ds_id} Initializing partition for the first time for nvme offload.")
+
+                else:
+                    print_rank_0(f"partition_size!: {partition_size}", force=True)
+                    if param.ds_persist:
+                        device = self.local_device
+                    elif self.remote_device == OffloadDeviceEnum.nvme:
+                        device = OffloadDeviceEnum.cpu
+                    else:
+                        device = self.remote_device
+
+                    partitioned_tensor = torch.empty(partition_size, dtype=param.dtype, device=device)
+
+                    if device == OffloadDeviceEnum.cpu and self.pin_memory:
+                        partitioned_tensor = get_accelerator().pin_memory(partitioned_tensor)
+
+                partitioned_tensor.requires_grad = False
+                param.ds_tensor = partitioned_tensor # get_buffer size
+                param.ds_tensor.ds_numel = partition_size
+                param.ds_tensor.status = PartitionedParamStatus.AVAILABLE
+                param.ds_tensor.final_location = final_location
+
+            start = partition_size * self.get_partition_rank()
+            end = start + partition_size
+
+            one_dim_param = param.contiguous().view(-1)
+
+            if start < param.ds_numel and end <= param.ds_numel:
+                src_tensor = one_dim_param.narrow(0, start, partition_size)
+                print_rank_0(f"src_tensor.shape: {src_tensor.shape}", force=False)
+                print_rank_0(f"param.ds_tensor.shape: {param.ds_tensor.shape}", force=False)
+
+                param.ds_tensor.copy_(src_tensor) #  non_blocking=true, if True and this copy is between CPU and GPU, the copy may occur asynchronously with respect to the host. For other cases, this argument has no effect.
+
+                #partitioned_tensor = src_tensor.clone().detach().to(self.remote_device)
+
+            else:
+                # partitioned_tensor = torch.zeros(partition_size,
+                #                                  dtype=param.dtype,
+                #                                  device=self.remote_device )
+
+                if start < param.ds_numel:
+                    elements_to_copy = param.ds_numel - start
+                    param.ds_tensor.narrow(0, 0,
+                                           elements_to_copy).copy_(one_dim_param.narrow(0, start, elements_to_copy))
+
+            #print(f"Remote device {self.remote_device}")
+
+            #param.ds_tensor = partitioned_tensor
+
+            #param.data = param.ds_tensor.data
+
+            # param.data does not store anything meaningful in partitioned state
+
+            see_memory_usage(f'Before partitioning param {param.ds_id} {param.shape}', force=False)
+            free_param(param)
+            see_memory_usage(f'After partitioning param {param.ds_id} {param.shape}', force=False)
+
+            if param.ds_tensor.final_location == OffloadDeviceEnum.nvme:
+                self.param_swapper.swap_out_and_release([param])
+                print_rank_0(f"ID {param.ds_id} Offloaded to nvme offload and buffers released.")
+                see_memory_usage(f"ID {param.ds_id} Offloaded to nvme offload and buffers released.", force=False)
+
+            print_rank_0(f"ID {param.ds_id} partitioned type {param.dtype} dev {param.device} shape {param.shape}")
+
+    # backward=True로 partition()이 들어오기도 함.
     def _partition(self, param_list, force=False, has_been_updated=False):
-        print_rank_0(f"[partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True) # __release_param
+        print_rank_0(f"[_partition] assert_ints_same_as_other_ranks in invoked funct: {sys._getframe().f_back.f_code.co_name}", force=True) # __release_param
 
         # 이거 overhead가 좀 클 듯 --> 따로 cost_model, scheudling 저장하고 부르는게 나을 듯..
         if self.__mode == "cpu-side-concat":
@@ -1847,6 +2051,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
     def _partition_param_sec(self, param, buffer=None, has_been_updated=False):
         assert param.ds_status is not ZeroParamStatus.INFLIGHT, f" {param} Cannot partition a param in flight"
         global reuse_buffers
+        print_rank_0("def _partition_param_sec", force=True)
         ##support for NVME secondary param offload
         #print_rank_0(f"SEC Param id {param.ds_id} status is {param.ds_status}", force=True)
         if param.ds_status is ZeroParamStatus.AVAILABLE:
