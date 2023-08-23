@@ -295,14 +295,14 @@ class PartitionedParameterCoordinator:
                     elif param.whole == False:
                         gpu_fetch_params.append(param)
                         gpu_all_gather_numel += param.ds_numel
-            if cpu_fetch_params:
-                #print_rank_0("if cpu_fetch_params:", force=True)
-                self.__cpu_cat_params(cpu_fetch_params, forward)
-                self.__n_available_params += cpu_all_gather_numel
             if gpu_fetch_params:
-                #print_rank_0("if gpu_fetch_params:", force=True)
+                print_rank_0(f"if gpu_fetch_params:{len(gpu_fetch_params)}", force=True)
                 self.__all_gather_params(gpu_fetch_params, forward) # here
                 self.__n_available_params += gpu_all_gather_numel
+            if cpu_fetch_params:
+                print_rank_0(f"if cpu_fetch_params:{len(cpu_fetch_params)}", force=True)
+                self.__cpu_cat_params(cpu_fetch_params, forward)
+                self.__n_available_params += cpu_all_gather_numel
             self.__profiler.stop_event(event_name, fetch_numel)
 
         wait_numel = 0
