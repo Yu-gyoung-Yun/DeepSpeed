@@ -1022,8 +1022,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         # DeepSpeed Param ID
         param.ds_id = Init.param_id
         Init.param_id += 1
-
-        def all_gather(param_list=None, async_op=False, hierarchy=0):
+        # here
+        def all_gather(param_list=None, async_op=False, hierarchy=0): # async_op=False
             cls = param
             if param_list is None:
                 param_list = [cls]
@@ -1527,8 +1527,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     all_gather_list.append(param)
 
         if not async_op:
-            if len(param_list) == 1:
-                ret_value = self._allgather_params(all_gather_list, hierarchy=hierarchy)
+            if len(param_list) == 1: # here
+                ret_value = self._allgather_params(all_gather_list, hierarchy=hierarchy) # here
             else:
                 ret_value = self._allgather_params_coalesced(all_gather_list, hierarchy)
 
@@ -1593,7 +1593,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             can_offload = self.param_swapper._check_buffer(tensor_size)
             if can_offload:
                 #random.seed(24)
-                random_boolean = bool(random.getrandbits(1))
+                random_boolean =  bool(random.getrandbits(1))
             else:
                 random_boolean = False
 
@@ -1900,7 +1900,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
                     offset += param_numel
 
-        dist.all_gather(partitions,
+        dist.all_gather(partitions, # here
                         partitions[self.get_partition_rank()],
                         group=self.get_partition_dp_group(param),
                         async_op=False)
