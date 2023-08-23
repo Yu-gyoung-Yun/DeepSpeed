@@ -1252,17 +1252,17 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 buffer_size = math.ceil(param.ds_numel / world_size) * world_size
                 if not forward and param.ds_secondary_tensor is not None:
                     buffer_size = param.ds_secondary_tensor.shape[0] * world_size  #make sure out is appropriately sized
-                with get_accelerator().stream(self.__asyn_stream):
-                    param_buffer = torch.empty(
-                        buffer_size,
-                        dtype=param.dtype if not quant else torch.int8,
-                        device=get_accelerator().current_device_name(),
-                        requires_grad=False,
-                    )
-                param_ds_tensor = param.ds_secondary_tensor if not forward and param.ds_secondary_tensor is not None else param.ds_tensor
+                #with get_accelerator().stream(self.__asyn_stream):
+                '''param_buffer = torch.empty(
+                    buffer_size,
+                    dtype=param.dtype if not quant else torch.int8,
+                    device=get_accelerator().current_device_name(),
+                    requires_grad=False,
+                )'''
+                param_ds_tensor = param.ds_secondary_tensor.pin_memory() if not forward and param.ds_secondary_tensor is not None else param.ds_tensor # param.ds_tensor는 이미 pin_memory()
                 if not quant:
                     print_rank_0(f"[CPU]param.ds_id: {param.ds_id}, ", force=False)
-                    #print_rank_0(f"param_ds_tensor.size: {param_ds_tensor.size()}, param_buffer.size: {param_buffer.size()}", force=True)
+                    #print_rank_0(f"param_ds_tensor.size: {param_ds_tensor.size()}", force=True) #param_buffer.size: {param_buffer.size()}", force=True)
                     '''handles = _dist_allgather_fn(
                         param_ds_tensor.to(get_accelerator().current_device_name()), #input
                         param_buffer, #output
@@ -1270,9 +1270,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     )
                     param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape).to(param.device)
                     return AllGatherHandle(handles, param)'''
-                    #with get_accelerator().stream(self.__asyn_stream):
-                    param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape)
-                    param.ds_status = ZeroParamStatus.AVAILABLE
+                    with get_accelerator().stream(self.__asyn_stream):
+                        param.data = param_ds_tensor.view(param.ds_shape).to(get_accelerator().current_device_name()) #.narrow(0, 0, param.ds_numel).view(param.ds_shape)
+                        param.ds_status = ZeroParamStatus.AVAILABLE
                     return tuple([True])
                 else:
                     quantized_param, scales = self.quantizer_module.quantize(param_ds_tensor)
@@ -1302,22 +1302,22 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 if params[0].ds_secondary_tensor is not None and not forward:
                     partition_sz = sum(p.ds_tensor.ds_numel * p.ds_secondary_tensor_num_of_groups for p in params)
 
-                flat_tensor = torch.empty(partition_sz * world_size,
+                '''flat_tensor = torch.empty(partition_sz * world_size,
                                           dtype=get_only_unique_item(p.dtype
                                                                      for p in params) if not quant else torch.int8,
                                           #device=get_accelerator().current_device_name(),
-                                          requires_grad=False)
+                                          requires_grad=False)'''
                 if not quant:
                     # No concat
                     print_rank_0(f"self.__asyn_stream: {self.__asyn_stream}", force=False) # 0x7322160>
-                    #with get_accelerator().stream(self.__asyn_stream):
-                    for p in params:
-                        assert p.whole == True, f"p.whole must be True, but the {p.ds_id} has {p.whole}"
-                        #print_rank_0(f"p.ds_tensor: {p.ds_tensor.size}, {p.ds_tensor.shape}", force=False)
-                        # RuntimeError: shape '[2048]' is invalid for input of size 2052 # --> when gpus=6
-                        p.data = p.ds_tensor.pin_memory().view(p.ds_shape).to(get_accelerator().current_device_name(), non_blocking=True)
-                        p.ds_status = ZeroParamStatus.AVAILABLE
-                        #print_rank_0(f"p.ds_id: {p.ds_id}, p.ds_shape: {p.ds_shape}, p.ds_size: {p.ds_size}", force=False)
+                    with get_accelerator().stream(self.__asyn_stream):
+                        for p in params:
+                            assert p.whole == True, f"p.whole must be True, but the {p.ds_id} has {p.whole}"
+                            print_rank_0(f"p.ds_tensor: {p.ds_tensor.size}, {p.ds_tensor.shape}", force=True)
+                            # RuntimeError: shape '[2048]' is invalid for input of size 2052 # --> when gpus=6
+                            p.data = p.ds_tensor.view(p.ds_shape).to(get_accelerator().current_device_name(), non_blocking=True)
+                            p.ds_status = ZeroParamStatus.AVAILABLE
+                            #print_rank_0(f"p.ds_id: {p.ds_id}, p.ds_shape: {p.ds_shape}, p.ds_size: {p.ds_size}", force=False)
                     return tuple([True])
                         #print_rank_0(f"p.ds_size: {p.ds_size}", force=True)
                         #random_p = torch.rand((p.ds_shape), requires_grad=False, dtype=torch.float16).pin_memory()
@@ -1592,7 +1592,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             tensor_size = self._aligned_size(param)
             can_offload = self.param_swapper._check_buffer(tensor_size)
             if can_offload:
-                random.seed(24)
+                #random.seed(24)
                 random_boolean = bool(random.getrandbits(1))
             else:
                 random_boolean = False
