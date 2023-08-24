@@ -104,6 +104,7 @@ class PartitionedParameterCoordinator:
 
         # stream that will be used for allgather operations
         self.__allgather_stream: get_accelerator().Stream = allgather_stream
+        self.__ex_stream = get_accelerator().Stream()
 
         # limit the number of fetch events that can be queued at once
         # otherwise, what happens is memory is allocated by the host thread at the
@@ -518,7 +519,11 @@ class PartitionedParameterCoordinator:
                 #self.__profiler.start_event(event_name)
                 handle = partitioned_params[0].all_gather_coalesced(partitioned_params, forward)
                 #self.__profiler.stop_event(event_name, all_gather_numel)
-
+            torch.cuda.nvtx.range_push("partitioned_param to P2P")
+            with get_accelerator().stream(self.__ex_stream):
+                if get_accelerator().current_device_name() != "cuda:2":
+                    partitioned_params[0].to("cuda:2", non_blocking=True)
+            torch.cuda.nvtx.range_pop()
             for param in partitioned_params:
                 if param.ds_status == ZeroParamStatus.AVAILABLE:
                     continue
