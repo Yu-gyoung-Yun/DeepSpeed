@@ -1247,7 +1247,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
             if len(params) == 1:
                 # have an opportunity to avoid some intermediate memory allocations
-                print_rank_0("cpu_cat_params with if len(params) == 1", force=False)
+                #print_rank_0("cpu_cat_params with if len(params) == 1", force=False)
                 param, = params
                 buffer_size = math.ceil(param.ds_numel / world_size) * world_size
                 if not forward and param.ds_secondary_tensor is not None:
@@ -1313,7 +1313,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     with get_accelerator().stream(self.__asyn_stream):
                         for p in params:
                             assert p.whole == True, f"p.whole must be True, but the {p.ds_id} has {p.whole}"
-                            print_rank_0(f"p.ds_tensor: {p.ds_tensor.size}, {p.ds_tensor.shape}", force=True)
+                            #print_rank_0(f"p.ds_tensor: {p.ds_tensor.size}, {p.ds_tensor.shape}", force=True)
                             # RuntimeError: shape '[2048]' is invalid for input of size 2052 # --> when gpus=6
                             p.data = p.ds_tensor.view(p.ds_shape).to(get_accelerator().current_device_name(), non_blocking=True)
                             p.ds_status = ZeroParamStatus.AVAILABLE
@@ -1594,6 +1594,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             if can_offload:
                 #random.seed(24)
                 random_boolean =  bool(random.getrandbits(1))
+                #random_boolean = False
             else:
                 random_boolean = False
 
