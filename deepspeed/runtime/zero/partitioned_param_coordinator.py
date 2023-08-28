@@ -375,6 +375,7 @@ class PartitionedParameterCoordinator:
 
             # kick off all gather for params in the next few submodules (prefetch)
             if self.__prefetch_bucket_sz > 0:
+                print_rank_0(f"self.__prefetch_bucket_sz: {self.__prefetch_bucket_sz}", force=True)
                 max_params_to_prefetch = min(self.__max_n_available_params - self.__n_available_params,
                                              self.__prefetch_bucket_sz)
                 params_to_prefetch = set()
