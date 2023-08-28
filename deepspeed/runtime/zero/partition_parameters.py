@@ -862,6 +862,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         self.rank_in_group = self.rank
         self.num_param_groups = 1
         self.__asyn_stream = get_accelerator().Stream()
+        self._chck_id = 0
 
         if self.zero_param_process_group is not None:
             self.num_ranks_in_param_group = groups._get_zero_param_intra_parallel_group_world_size()
@@ -1591,13 +1592,13 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
             tensor_size = self._aligned_size(param)
             can_offload = self.param_swapper._check_buffer(tensor_size)
-            if can_offload:
+            if can_offload:# and self._chck_id > 4:
                 #random.seed(24)
-                random_boolean =  bool(random.getrandbits(1))
-                #random_boolean = False
+                #random_boolean =  bool(random.getrandbits(1))
+                random_boolean = False
             else:
                 random_boolean = False
-
+            self._chck_id += 1
             if param.whole is None:
                 if random_boolean:
                     #print_rank_0("cpu-side offload", force=True)
