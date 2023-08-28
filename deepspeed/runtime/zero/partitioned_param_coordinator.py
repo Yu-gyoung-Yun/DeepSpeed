@@ -292,16 +292,18 @@ class PartitionedParameterCoordinator:
                 if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
                     if param.whole == True:
                         cpu_fetch_params.append(param)
+                        print_rank_0(f"@{self.__step_id} if cpu_fetch_params: {param.ds_id}", force=True)
                         cpu_all_gather_numel += param.ds_numel
                     elif param.whole == False:
+                        print_rank_0(f"@{self.__step_id} if gpu_fetch_params: {param.ds_id}", force=True)
                         gpu_fetch_params.append(param)
                         gpu_all_gather_numel += param.ds_numel
             if gpu_fetch_params:
-                print_rank_0(f"if gpu_fetch_params:{len(gpu_fetch_params)}", force=True)
+                #print_rank_0(f"if gpu_fetch_params:{len(gpu_fetch_params)}", force=True)
                 self.__all_gather_params(gpu_fetch_params, forward) # here
                 self.__n_available_params += gpu_all_gather_numel
             if cpu_fetch_params:
-                print_rank_0(f"if cpu_fetch_params:{len(cpu_fetch_params)}", force=True)
+                #print_rank_0(f"if cpu_fetch_params:{len(cpu_fetch_params)}", force=True)
                 self.__cpu_cat_params(cpu_fetch_params, forward)
                 self.__n_available_params += cpu_all_gather_numel
             self.__profiler.stop_event(event_name, fetch_numel)
@@ -316,6 +318,7 @@ class PartitionedParameterCoordinator:
             #    debug_rank0(f"-wait: {param.ds_summary()}")
             #print_rank_0(f"-wait: {param.ds_summary()}", force=True)
             if param in self.__inflight_param_registry:
+                print_rank_0(f"-wait: {param.ds_summary()}", force=True)
                 wait_numel += param.partition_numel()
                 with get_accelerator().stream(self.__allgather_stream): # __all_gahter에서도 이 stream씀
                     while self.__ongoing_fetch_events and self.__ongoing_fetch_events[0].query():
@@ -324,7 +327,7 @@ class PartitionedParameterCoordinator:
                         self.__ongoing_fetch_events.popleft().synchronize()
                     handle = self.__inflight_param_registry.pop(param)
                     if type(handle) is tuple: # host side all-gather
-                        print_rank_0("if type(ahndle) is tuple", force=True)
+                        print_rank_0("if type(handle) is tuple", force=True)
                         if not handle[0]: # waiting host side all-gather
                             get_accelerator.current_stream().wait_stream(handle[1])
                     else:
@@ -412,14 +415,16 @@ class PartitionedParameterCoordinator:
                     gpu_fetch_params = []
                     cpu_all_gather_numel = 0
                     gpu_all_gather_numel = 0
-                    for param in params_to_fetch:
+                    for param in params_to_prefetch:
                         if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
                             assert param.whole is not None, "param.whole is not None!!"
                             if param.whole == True:
                                 cpu_fetch_params.append(param)
+                                print_rank_0(f"@{self.__step_id} [prefetch] if cpu_fetch_params: {param.ds_id}", force=True)
                                 cpu_all_gather_numel += param.ds_numel
                             else:
                                 gpu_fetch_params.append(param)
+                                print_rank_0(f"@{self.__step_id} [prefetch] if gpu_fetch_params: {param.ds_id}", force=True)
                                 gpu_all_gather_numel += param.ds_numel
                     if cpu_fetch_params:
                         self.__cpu_cat_params(cpu_fetch_params, forward)
@@ -519,11 +524,11 @@ class PartitionedParameterCoordinator:
                 #self.__profiler.start_event(event_name)
                 handle = partitioned_params[0].all_gather_coalesced(partitioned_params, forward)
                 #self.__profiler.stop_event(event_name, all_gather_numel)
-            torch.cuda.nvtx.range_push("partitioned_param to P2P")
+            '''torch.cuda.nvtx.range_push("partitioned_param to P2P")
             with get_accelerator().stream(self.__ex_stream):
                 if get_accelerator().current_device_name() != "cuda:2":
                     partitioned_params[0].to("cuda:2", non_blocking=True)
-            torch.cuda.nvtx.range_pop()
+            torch.cuda.nvtx.range_pop()'''
             for param in partitioned_params:
                 if param.ds_status == ZeroParamStatus.AVAILABLE:
                     continue
