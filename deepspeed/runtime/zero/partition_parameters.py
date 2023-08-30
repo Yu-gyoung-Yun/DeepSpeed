@@ -1594,8 +1594,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
             can_offload = self.param_swapper._check_buffer(tensor_size)
             if can_offload:# and self._chck_id > 4:
                 #random.seed(24)
-                #random_boolean =  bool(random.getrandbits(1))
-                random_boolean = False
+                random_boolean =  bool(random.getrandbits(1))
+                #random_boolean = False
             else:
                 random_boolean = False
             self._chck_id += 1
