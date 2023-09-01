@@ -542,6 +542,8 @@ class AllGatherHandle:
         self.__quantization = quantization
 
     def wait(self) -> None:
+        if self.__handle is None:
+            return
         instrument_w_nvtx(self.__handle.wait)()
         if self.__quantization:
             instrument_w_nvtx(self.__quantization.quant_handle.wait)()
@@ -862,6 +864,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
         self.rank_in_group = self.rank
         self.num_param_groups = 1
         self.__asyn_stream = get_accelerator().Stream()
+        self.__partial_allgather_stream = get_accelerator().Stream()
         self._chck_id = 0
 
         if self.zero_param_process_group is not None:
@@ -1083,6 +1086,10 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
             if len(params) == 1:
                 # have an opportunity to avoid some intermediate memory allocations
+                # random하게 H2D 혹은 H2D->P2P, Step이 많이 달라지겠는걸..--> 
+                # DeepSpeed에 구애받지 않게 할 방법이 없을까? 지금 All-gather가 너무 time의 큰 시간을 차지한다. --> node 수 늘어날 수록 더 증가할 수 밖에 없음 (그래프)
+                # Hmm.. 아예 독특하게, 어쨋든 GPU안에 하나의 layer를 모은후에, 그걸 다른 GPU에 전달하고, 근데 그 무거운 layer 하나를 P2P로 전달하는 속도도 클듯..
+                # H2D로 넣고, 
                 param, = params
                 sub_world_size = 2
                 print_rank_0(f"og param.ds_numel: {param.ds_numel}", force=True)
@@ -1108,6 +1115,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     device=get_accelerator().current_device_name(),
                     requires_grad=False,
                 )
+                partitions = []
+                partitions.append(param_buffer)
                 param_ds_tensor = param.ds_secondary_tensor if not forward and param.ds_secondary_tensor is not None else param.ds_tensor
                 if not quant:
                     sub_process_gpu_group = dist.new_group([0, 1])
@@ -1118,9 +1127,17 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         param_buffer, # output
                         sub_process_gpu_group, #ds_process_group,
                     )
-                    print(f"handles: {handles} w/ {get_accelerator().current_device_name()}") #handles: None w/ cuda:2
-                    param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape).to(param.device)
                     return AllGatherHandle(handles, param)
+                    # 아니면 P2P로 보내놓고, 있는 애들끼리 그때그때 concat / all-gather로 모을까?
+                    print(f"handles: {handles} w/ {get_accelerator().current_device_name()}") #handles: None w/ cuda:2
+                    if param.device not in ["cuda:0", "cuda:1"]:
+                        param_ds_tensor.to(get_accelerator().current_device_name(), non_blocking=True)
+                        partitions.append(param_ds_tensor)
+                        param.ds_status = ZeroParamStatus.AVAILABLE
+                        #with torch.cuda.stream(self.__partial_allgather_stream):
+                        #    torch.cat(param_buffer, )
+                        #param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape)#.to(param.device, non_blocking=True)
+                        return tuple([True])
                 else:
                     quantized_param, scales = self.quantizer_module.quantize(param_ds_tensor)
                     handle = _dist_allgather_fn(quantized_param.to(get_accelerator().current_device_name()),
