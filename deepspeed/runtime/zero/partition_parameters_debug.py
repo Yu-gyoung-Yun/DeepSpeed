@@ -1092,19 +1092,22 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 # H2D로 넣고, 
                 param, = params
                 sub_world_size = 2
-                print_rank_0(f"og param.ds_numel: {param.ds_numel}", force=True)
+                #print_rank_0(f"og param.ds_numel: {param.ds_numel}", force=True)
                 param.ds_numel = param.ds_numel//sub_world_size
-                print_rank_0(f"after param.ds_numel: {param.ds_numel}", force=True)
+                #print_rank_0(f"after param.ds_numel: {param.ds_numel}", force=True)
                 _buffer_size = math.ceil(param.ds_numel / world_size) * world_size
                 print_rank_0(f"_math.ceil(param.ds_numel / world_size): {math.ceil(param.ds_numel / world_size)}", force=True)
-                buffer_size = math.ceil(param.ds_numel / sub_world_size) * sub_world_size
+                param_ds_tensor = param.ds_secondary_tensor if not forward and param.ds_secondary_tensor is not None else param.ds_tensor
+                
+                buffer_size = param_ds_tensor.numel() * sub_world_size #math.ceil(param.ds_numel / sub_world_size) * sub_world_size
                 #param.ds_shape = 
-                param.ds_shape = (param.ds_shape[0]//sub_world_size,) + tuple(dim for dim in param.ds_shape[1:])
-
+                print_rank_0(f"Before ds_shape: {param.ds_shape}", force=True)
+                param.ds_shape = (param.ds_shape[0]//sub_world_size, param.ds_shape[1]//sub_world_size, ) + tuple(dim for dim in param.ds_shape[2:])
+                print_rank_0(f"After ds_shape: {param.ds_shape}", force=True)
                 #param.ds_shape = tuple(param.ds_shape[0], [dim for dim in param.ds_shape[1:]])#// 2 if dim == param.ds_shape[0] else dim for dim in param.ds_shape)
                 # 자 중첩까지는 잘 했어. --> 줄더라. --> 여기서 중첩이 안되는 큰 모델의 경우, 기존의 All-gather의 비용을 줄이려면, 
                 print_rank_0(f"math.ceil(param.ds_numel / world_size): {math.ceil(param.ds_numel / sub_world_size)}", force=True)
-                print_rank_0(f"buffer_size: {buffer_size} w/ world_size: {sub_world_size}", force=True)
+                print_rank_0(f"buffer_size: {buffer_size} w/ sub_world_size: {sub_world_size}", force=True)
                 print_rank_0(f"buffer_size: {_buffer_size} w/ world_size: {world_size}", force=True)
                 if not forward and param.ds_secondary_tensor is not None:
                     buffer_size = param.ds_secondary_tensor.shape[0] * world_size  #make sure out is appropriately sized
@@ -1117,7 +1120,6 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                 )
                 partitions = []
                 partitions.append(param_buffer)
-                param_ds_tensor = param.ds_secondary_tensor if not forward and param.ds_secondary_tensor is not None else param.ds_tensor
                 if not quant:
                     sub_process_gpu_group = dist.new_group([0, 1])
                     print_rank_0(f"param_ds_tensor: {param_ds_tensor.size()}", force=True)
@@ -1127,17 +1129,26 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         param_buffer, # output
                         sub_process_gpu_group, #ds_process_group,
                     )
-                    return AllGatherHandle(handles, param)
+                    
                     # 아니면 P2P로 보내놓고, 있는 애들끼리 그때그때 concat / all-gather로 모을까?
-                    print(f"handles: {handles} w/ {get_accelerator().current_device_name()}") #handles: None w/ cuda:2
+                    print(f"handles: {handles} w/ {get_accelerator().current_device_name()} + param.device: {param.device}") #handles: None w/ cuda:2
                     if param.device not in ["cuda:0", "cuda:1"]:
-                        param_ds_tensor.to(get_accelerator().current_device_name(), non_blocking=True)
-                        partitions.append(param_ds_tensor)
+                        #param_ds_tensor.to(get_accelerator().current_device_name(), non_blocking=True)
+                        #dist.broadcast
+                        print_rank_0(f"if param.devce not in []", force=True)
+                        torch.cuda.nvtx.range_push("[Me]Broadcast")
+                        with torch.cuda.stream(torch.cuda.Stream()):
+                            handles__ = dist.broadcast(tensor=param_ds_tensor.to(get_accelerator().current_device_name()), src=get_accelerator().current_device(), group=ds_process_group, async_op=False)
+                        torch.cuda.nvtx.range_pop()
+                        #partitions.append(param_ds_tensor)
                         param.ds_status = ZeroParamStatus.AVAILABLE
                         #with torch.cuda.stream(self.__partial_allgather_stream):
                         #    torch.cat(param_buffer, )
                         #param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape)#.to(param.device, non_blocking=True)
                         return tuple([True])
+                    
+                    param.data = param_buffer.narrow(0, 0, buffer_size).view(param.ds_shape)#.to(param.device, non_blocking=True)
+                    return AllGatherHandle(handles, param)
                 else:
                     quantized_param, scales = self.quantizer_module.quantize(param_ds_tensor)
                     handle = _dist_allgather_fn(quantized_param.to(get_accelerator().current_device_name()),
