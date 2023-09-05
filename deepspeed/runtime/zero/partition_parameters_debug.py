@@ -1134,7 +1134,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     
                     # 아니면 P2P로 보내놓고, 있는 애들끼리 그때그때 concat / all-gather로 모을까?
                     print(f"handles: {handles} w/ {get_accelerator().current_device_name()} + param.device: {param.device}") #handles: None w/ cuda:2
-
+                    fake = 0
                     if get_accelerator().current_device_name() not in ["cuda:0", "cuda:1"]:
                         #param_ds_tensor.to(get_accelerator().current_device_name(), non_blocking=True)
                         #dist.broadcast
@@ -1143,9 +1143,9 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         async_op = True
                         streatm = get_accelerator().Stream()
                         with get_accelerator().stream(streatm):
-                            param.b = param_ds_tensor
+                            fake = param_ds_tensor
                             print(f"here: {param.b}")
-                            dist.broadcast(tensor=param.b.to(get_accelerator().current_device_name()), src=get_accelerator().current_device(), group=ds_process_group, async_op=async_op)
+                            dist.broadcast(tensor=fake.to(get_accelerator().current_device_name()), src=get_accelerator().current_device(), group=ds_process_group, async_op=async_op)
                         if not async_op:
                             handles.wait()
                         torch.cuda.nvtx.range_pop()
@@ -1156,7 +1156,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         #param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape)#.to(param.device, non_blocking=True)
                         return tuple([True])
                     else: # not broadcasted device
-                        print(f"sended b: {param.b}")
+                        print(f"sended b: {fake}")
                     param.data = param_buffer.narrow(0, 0, buffer_size).view(param.ds_shape)#.to(param.device, non_blocking=True)
                     return AllGatherHandle(handles, param)
                 else:
