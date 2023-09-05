@@ -993,6 +993,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
 
         # Stores the partitioned copy of the tensor
         param.ds_tensor = None
+        # YG
+        param.b = 0
 
         # Keeps track of how many active sub-modules need this param at any given point in time
         param.ds_active_sub_modules = set()
@@ -1132,21 +1134,29 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     
                     # 아니면 P2P로 보내놓고, 있는 애들끼리 그때그때 concat / all-gather로 모을까?
                     print(f"handles: {handles} w/ {get_accelerator().current_device_name()} + param.device: {param.device}") #handles: None w/ cuda:2
-                    if param.device not in ["cuda:0", "cuda:1"]:
+
+                    if get_accelerator().current_device_name() not in ["cuda:0", "cuda:1"]:
                         #param_ds_tensor.to(get_accelerator().current_device_name(), non_blocking=True)
                         #dist.broadcast
-                        print_rank_0(f"if param.devce not in []", force=True)
+                        print(f"if param.devce not in [] w/ {get_accelerator().current_device_name()}")
                         torch.cuda.nvtx.range_push("[Me]Broadcast")
-                        with torch.cuda.stream(torch.cuda.Stream()):
-                            handles__ = dist.broadcast(tensor=param_ds_tensor.to(get_accelerator().current_device_name()), src=get_accelerator().current_device(), group=ds_process_group, async_op=False)
+                        async_op = True
+                        streatm = get_accelerator().Stream()
+                        with get_accelerator().stream(streatm):
+                            param.b = param_ds_tensor
+                            print(f"here: {param.b}")
+                            dist.broadcast(tensor=param.b.to(get_accelerator().current_device_name()), src=get_accelerator().current_device(), group=ds_process_group, async_op=async_op)
+                        if not async_op:
+                            handles.wait()
                         torch.cuda.nvtx.range_pop()
                         #partitions.append(param_ds_tensor)
-                        param.ds_status = ZeroParamStatus.AVAILABLE
+                        #param.ds_status = ZeroParamStatus.AVAILABLE
                         #with torch.cuda.stream(self.__partial_allgather_stream):
                         #    torch.cat(param_buffer, )
                         #param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape)#.to(param.device, non_blocking=True)
                         return tuple([True])
-                    
+                    else: # not broadcasted device
+                        print(f"sended b: {param.b}")
                     param.data = param_buffer.narrow(0, 0, buffer_size).view(param.ds_shape)#.to(param.device, non_blocking=True)
                     return AllGatherHandle(handles, param)
                 else:
