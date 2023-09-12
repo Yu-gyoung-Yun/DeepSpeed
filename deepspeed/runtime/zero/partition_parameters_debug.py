@@ -1134,7 +1134,8 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                     
                     # 아니면 P2P로 보내놓고, 있는 애들끼리 그때그때 concat / all-gather로 모을까?
                     print(f"handles: {handles} w/ {get_accelerator().current_device_name()} + param.device: {param.device}") #handles: None w/ cuda:2
-                    fake = 0
+                    fake = torch.empty(param_ds_tensor.shape)
+                    print(f"fake's shape: {fake.shape}")
                     if get_accelerator().current_device_name() not in ["cuda:0", "cuda:1"]:
                         #param_ds_tensor.to(get_accelerator().current_device_name(), non_blocking=True)
                         #dist.broadcast
@@ -1143,11 +1144,15 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         async_op = True
                         streatm = get_accelerator().Stream()
                         with get_accelerator().stream(streatm):
-                            fake = param_ds_tensor
-                            print(f"here: {param.b}")
-                            dist.broadcast(tensor=fake.to(get_accelerator().current_device_name()), src=get_accelerator().current_device(), group=ds_process_group, async_op=async_op)
-                        if not async_op:
+                            fake = torch.zeros_like(param_ds_tensor, dtype=torch.float16)
+                            print(f"[BROADCAST] fake's shape: {fake.shape}")
+                            print(f"here: {fake}")
+                            handles = dist.broadcast(tensor=fake.to(get_accelerator().current_device_name()), src=get_accelerator().current_device(), group=ds_process_group, async_op=async_op)
+                        if async_op: # if Flase, there's no return object from dist.broadcast
+                            # Async work handle, if async_op is set to True. None, if not async_op or if not part of the group
+                            print("[WAIT] dist.broadcast")
                             handles.wait()
+                            print(f"[AFTER WAIT] [{dist.get_rank()}] data = {fake}")
                         torch.cuda.nvtx.range_pop()
                         #partitions.append(param_ds_tensor)
                         #param.ds_status = ZeroParamStatus.AVAILABLE
@@ -1156,7 +1161,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                         #param.data = param_buffer.narrow(0, 0, param.ds_numel).view(param.ds_shape)#.to(param.device, non_blocking=True)
                         return tuple([True])
                     else: # not broadcasted device
-                        print(f"sended b: {fake}")
+                        print(f"sended b: {fake} w/ {get_accelerator().current_device_name()}")
                     param.data = param_buffer.narrow(0, 0, buffer_size).view(param.ds_shape)#.to(param.device, non_blocking=True)
                     return AllGatherHandle(handles, param)
                 else:
