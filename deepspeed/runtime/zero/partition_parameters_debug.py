@@ -1147,6 +1147,7 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                             fake = torch.zeros_like(param_ds_tensor, dtype=torch.float16)
                             print(f"[BROADCAST] fake's shape: {fake.shape}")
                             print(f"here: {fake}")
+                            fake.to("cuda:2")
                             handles = dist.broadcast(tensor=fake.to(get_accelerator().current_device_name()), src=get_accelerator().current_device(), group=ds_process_group, async_op=async_op)
                         if async_op: # if Flase, there's no return object from dist.broadcast
                             # Async work handle, if async_op is set to True. None, if not async_op or if not part of the group
